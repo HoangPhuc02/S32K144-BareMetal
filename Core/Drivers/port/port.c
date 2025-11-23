@@ -21,43 +21,54 @@
  ******************************************************************************/
 #include "port.h"
 #include "port_reg.h"
+#include "pcc_reg.h"
+
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-
-
 
 /*******************************************************************************
  * Private Variables
  ******************************************************************************/
 
+/** @brief Array of PORT base addresses */
+static PORT_Type * const s_portBases[PORT_INSTANCE_COUNT] = PORT_BASE_PTRS;
+
+/** @brief Array of PORT PCC indices */
+static const uint8_t s_portPccIndices[PORT_INSTANCE_COUNT] = {
+    PCC_PORTA_INDEX,
+    PCC_PORTB_INDEX,
+    PCC_PORTC_INDEX,
+    PCC_PORTD_INDEX,
+    PCC_PORTE_INDEX
+};
 
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
 
-// /**
-//  * @brief Get PORT base address
-//  * @param[in] port PORT name
-//  * @return Pointer to PORT register structure
-//  */
-// static inline PORT_Type* PORT_GetBase(port_name_t port);
+/**
+ * @brief Get PORT base address
+ * @param[in] port PORT name
+ * @return Pointer to PORT register structure
+ */
+static inline PORT_Type* PORT_GetBase(port_name_t port);
 
-// /**
-//  * @brief Get PCC index for PORT
-//  * @param[in] port PORT name
-//  * @return PCC register index
-//  */
-// static inline uint8_t PORT_GetPccIndex(port_name_t port);
+/**
+ * @brief Get PCC index for PORT
+ * @param[in] port PORT name
+ * @return PCC register index
+ */
+static inline uint8_t PORT_GetPccIndex(port_name_t port);
 
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
 
-// static inline PORT_Type* PORT_GetBase(port_name_t port)
-// {
-//     return s_portBases[port];
-// }
+static inline PORT_Type* PORT_GetBase(port_name_t port)
+{
+    return s_portBases[port];
+}
 
 static inline uint8_t PORT_GetPccIndex(port_name_t port)
 {
@@ -71,13 +82,13 @@ static inline uint8_t PORT_GetPccIndex(port_name_t port)
 void PORT_EnableClock(port_name_t port)
 {
     uint8_t pccIndex = PORT_GetPccIndex(port);
-    s_pccBase->PCCn[pccIndex] |= PCC_CGC_MASK;
+    PCC->PCCn[pccIndex] |= PCC_PCCn_CGC_MASK;
 }
 
 void PORT_DisableClock(port_name_t port)
 {
     uint8_t pccIndex = PORT_GetPccIndex(port);
-    s_pccBase->PCCn[pccIndex] &= ~PCC_CGC_MASK;
+    PCC->PCCn[pccIndex] &= ~PCC_PCCn_CGC_MASK;
 }
 
 void PORT_SetPinMux(port_name_t port, uint8_t pin, port_mux_t mux)

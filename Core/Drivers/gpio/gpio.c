@@ -20,29 +20,8 @@
  * Includes
  ******************************************************************************/
 #include "gpio.h"
+#include "gpio_reg.h"
 #include "port.h"
-
-/*******************************************************************************
- * Definitions
- ******************************************************************************/
-
-/** @brief GPIO base addresses */
-#define PTA_BASE    (0x400FF000UL)
-#define PTB_BASE    (0x400FF040UL)
-#define PTC_BASE    (0x400FF080UL)
-#define PTD_BASE    (0x400FF0C0UL)
-#define PTE_BASE    (0x400FF100UL)
-
-/** @brief GPIO register structure */
-typedef struct {
-    volatile uint32_t PDOR;    /**< Port Data Output Register */
-    volatile uint32_t PSOR;    /**< Port Set Output Register */
-    volatile uint32_t PCOR;    /**< Port Clear Output Register */
-    volatile uint32_t PTOR;    /**< Port Toggle Output Register */
-    volatile uint32_t PDIR;    /**< Port Data Input Register */
-    volatile uint32_t PDDR;    /**< Port Data Direction Register */
-    volatile uint32_t PIDR;    /**< Port Input Disable Register */
-} GPIO_Type;
 
 /*******************************************************************************
  * Private Variables
@@ -50,11 +29,11 @@ typedef struct {
 
 /** @brief Array of GPIO base addresses */
 static GPIO_Type * const s_gpioBases[] = {
-    (GPIO_Type *)PTA_BASE,
-    (GPIO_Type *)PTB_BASE,
-    (GPIO_Type *)PTC_BASE,
-    (GPIO_Type *)PTD_BASE,
-    (GPIO_Type *)PTE_BASE
+    PTA,
+    PTB,
+    PTC,
+    PTD,
+    PTE
 };
 
 /*******************************************************************************

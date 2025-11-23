@@ -23,7 +23,7 @@
  * Includes
  ******************************************************************************/
 #include <stdint.h>
-
+#include "def_reg.h"
 /*******************************************************************************
  * GPIO Base Addresses
  ******************************************************************************/
@@ -51,33 +51,33 @@
  * @brief GPIO register structure definition
  */
 typedef struct {
-    volatile uint32_t PDOR;    /**< Offset: 0x00 - Port Data Output Register */
-    volatile uint32_t PSOR;    /**< Offset: 0x04 - Port Set Output Register */
-    volatile uint32_t PCOR;    /**< Offset: 0x08 - Port Clear Output Register */
-    volatile uint32_t PTOR;    /**< Offset: 0x0C - Port Toggle Output Register */
-    volatile uint32_t PDIR;    /**< Offset: 0x10 - Port Data Input Register */
-    volatile uint32_t PDDR;    /**< Offset: 0x14 - Port Data Direction Register */
-    volatile uint32_t PIDR;    /**< Offset: 0x18 - Port Input Disable Register */
-} GPIO_RegType;
+    __IO uint32_t PDOR;    /**< Offset: 0x00 - Port Data Output Register */
+    __IO uint32_t PSOR;    /**< Offset: 0x04 - Port Set Output Register */
+    __IO uint32_t PCOR;    /**< Offset: 0x08 - Port Clear Output Register */
+    __IO uint32_t PTOR;    /**< Offset: 0x0C - Port Toggle Output Register */
+    __I  uint32_t PDIR;    /**< Offset: 0x10 - Port Data Input Register */
+    __IO uint32_t PDDR;    /**< Offset: 0x14 - Port Data Direction Register */
+    __IO uint32_t PIDR;    /**< Offset: 0x18 - Port Input Disable Register */
+} GPIO_Type;
 
 /*******************************************************************************
  * GPIO Register Pointers
  ******************************************************************************/
 
 /** @brief GPIO Port A register pointer */
-#define PTA                     ((GPIO_RegType *)PTA_BASE_ADDR)
+#define PTA                     ((GPIO_Type*)PTA_BASE_ADDR)
 
 /** @brief GPIO Port B register pointer */
-#define PTB                     ((GPIO_RegType *)PTB_BASE_ADDR)
+#define PTB                     ((GPIO_Type*)PTB_BASE_ADDR)
 
 /** @brief GPIO Port C register pointer */
-#define PTC                     ((GPIO_RegType *)PTC_BASE_ADDR)
+#define PTC                     ((GPIO_Type*)PTC_BASE_ADDR)
 
 /** @brief GPIO Port D register pointer */
-#define PTD                     ((GPIO_RegType *)PTD_BASE_ADDR)
+#define PTD                     ((GPIO_Type*)PTD_BASE_ADDR)
 
 /** @brief GPIO Port E register pointer */
-#define PTE                     ((GPIO_RegType *)PTE_BASE_ADDR)
+#define PTE                     ((GPIO_Type*)PTE_BASE_ADDR)
 
 /*******************************************************************************
  * GPIO Register Bit Definitions
