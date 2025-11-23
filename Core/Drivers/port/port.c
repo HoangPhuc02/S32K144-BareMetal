@@ -4,7 +4,7 @@
  * @details This file contains the implementation of PORT driver functions
  *          for pin multiplexing and configuration.
  * 
- * @author [Your Name]
+ * @author PhucPH32
  * @date November 22, 2025
  * @version 1.0
  * 
@@ -14,8 +14,6 @@
  * @par Change Log:
  * - Version 1.0 (Nov 22, 2025): Initial version
  * 
- * @copyright Copyright (c) 2025
- * Licensed under [Your License]
  */
 
 /*******************************************************************************
@@ -33,53 +31,33 @@
  * Private Variables
  ******************************************************************************/
 
-// /** @brief Array of PORT base addresses */
-// static PORT_Type * const s_portBases[] = {
-//     (PORT_Type *)PORTA_BASE,
-//     (PORT_Type *)PORTB_BASE,
-//     (PORT_Type *)PORTC_BASE,
-//     (PORT_Type *)PORTD_BASE,
-//     (PORT_Type *)PORTE_BASE
-// };
-
-// /** @brief Array of PCC indices for PORT modules */
-// static const uint8_t s_portPccIndices[] = {
-//     PCC_PORTA_INDEX,
-//     PCC_PORTB_INDEX,
-//     PCC_PORTC_INDEX,
-//     PCC_PORTD_INDEX,
-//     PCC_PORTE_INDEX
-// };
-
-// /** @brief PCC base pointer */
-// static PCC_Type * const s_pccBase = (PCC_Type *)PCC_BASE;
 
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
 
-/**
- * @brief Get PORT base address
- * @param[in] port PORT name
- * @return Pointer to PORT register structure
- */
-static inline PORT_Type* PORT_GetBase(port_name_t port);
+// /**
+//  * @brief Get PORT base address
+//  * @param[in] port PORT name
+//  * @return Pointer to PORT register structure
+//  */
+// static inline PORT_Type* PORT_GetBase(port_name_t port);
 
-/**
- * @brief Get PCC index for PORT
- * @param[in] port PORT name
- * @return PCC register index
- */
-static inline uint8_t PORT_GetPccIndex(port_name_t port);
+// /**
+//  * @brief Get PCC index for PORT
+//  * @param[in] port PORT name
+//  * @return PCC register index
+//  */
+// static inline uint8_t PORT_GetPccIndex(port_name_t port);
 
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
 
-static inline PORT_Type* PORT_GetBase(port_name_t port)
-{
-    return s_portBases[port];
-}
+// static inline PORT_Type* PORT_GetBase(port_name_t port)
+// {
+//     return s_portBases[port];
+// }
 
 static inline uint8_t PORT_GetPccIndex(port_name_t port)
 {

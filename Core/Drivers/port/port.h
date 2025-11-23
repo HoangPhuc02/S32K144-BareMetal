@@ -85,6 +85,7 @@ typedef enum {
  * @brief PORT pin configuration structure
  */
 typedef struct {
+    PORT_Type* base;                         /**< PORT base pointer */
     port_mux_t mux;                          /**< Pin multiplexing option */
     port_pull_config_t pull;                 /**< Pull resistor configuration */
     port_drive_strength_t drive;             /**< Drive strength */

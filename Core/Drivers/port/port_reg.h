@@ -48,7 +48,7 @@ typedef struct {
     __IO uint32_t DFER;                 /**< Offset: 0x0C0 - Digital Filter Enable Register */
     __IO uint32_t DFCR;                 /**< Offset: 0x0C4 - Digital Filter Clock Register */
     __IO uint32_t DFWR;                 /**< Offset: 0x0C8 - Digital Filter Width Register */
-} PORT_RegType;
+} PORT_Type;
 
  /** Number of instances of the PORT module. */
 #define PORT_INSTANCE_COUNT                      (5u)
@@ -80,19 +80,19 @@ typedef struct {
  ******************************************************************************/
 
 /** @brief PORT A register pointer */
-#define PORTA                   ((PORT_RegType *)PORTA_BASE_ADDR)
+#define PORTA                   ((PORT_Type *)PORTA_BASE_ADDR)
 
 /** @brief PORT B register pointer */
-#define PORTB                   ((PORT_RegType *)PORTB_BASE_ADDR)
+#define PORTB                   ((PORT_Type *)PORTB_BASE_ADDR)
 
 /** @brief PORT C register pointer */
-#define PORTC                   ((PORT_RegType *)PORTC_BASE_ADDR)
+#define PORTC                   ((PORT_Type *)PORTC_BASE_ADDR)
 
 /** @brief PORT D register pointer */
-#define PORTD                   ((PORT_RegType *)PORTD_BASE_ADDR)
+#define PORTD                   ((PORT_Type *)PORTD_BASE_ADDR)
 
 /** @brief PORT E register pointer */
-#define PORTE                   ((PORT_RegType *)PORTE_BASE_ADDR)
+#define PORTE                   ((PORT_Type *)PORTE_BASE_ADDR)
 
 /** Array initializer of PORT peripheral base pointers */
 #define PORT_BASE_PTRS          { PORTA, PORTB, PORTC, PORTD, PORTE }
