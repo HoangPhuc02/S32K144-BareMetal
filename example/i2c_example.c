@@ -48,19 +48,16 @@ void Example1_BasicInit(void)
 {
     /* Step 1: Enable peripheral clocks */
     I2C_EnableClock(0);              /* Enable LPI2C0 clock */
-    PORT_EnableClock(PORT_A);        /* Enable PORTA clock */
+    PORT_EnableClock(PORT_A);        /* Enable PORT_A clock */
     
     /* Step 2: Configure I2C pins (PTA2=SCL, PTA3=SDA) */
-    PORT_SetPinMux(PORTA, 2, PORT_MUX_ALT3);  /* I2C0_SCL */
-    PORT_SetPinMux(PORTA, 3, PORT_MUX_ALT3);  /* I2C0_SDA */
+    PORT_SetPinMux(PORT_A, 2, PORT_MUX_ALT3);  /* I2C0_SCL */
+    PORT_SetPinMux(PORT_A, 3, PORT_MUX_ALT3);  /* I2C0_SDA */
     
-    /* Configure as open-drain (required for I2C) */
-    PORT_SetOpenDrain(PORTA, 2, true);
-    PORT_SetOpenDrain(PORTA, 3, true);
     
     /* Enable internal pull-ups (if no external pull-ups) */
-    PORT_SetPullUp(PORTA, 2);
-    PORT_SetPullUp(PORTA, 3);
+    PORT_SetPullConfig(PORT_A, 2, PORT_PULL_UP);
+    PORT_SetPullConfig(PORT_A, 3, PORT_PULL_UP);
     
     /* Step 3: Configure I2C Master */
     I2C_MasterConfig_t config = {
@@ -496,44 +493,8 @@ void Example11_BusScan(void)
     
     printf("Scan complete: %d device(s) found\n", devicesFound);
 }
-{
-    /* Step 1: Enable peripheral clocks */
-    I2C_EnableClock(0);              /* Enable LPI2C0 clock */
-    PORT_EnableClock(PORT_A);        /* Enable PORTA clock */
-    
-    /* Step 2: Configure I2C pins (PTA2=SCL, PTA3=SDA) */
-    PORT_SetPinMux(PORTA, 2, PORT_MUX_ALT3);  /* I2C0_SCL */
-    PORT_SetPinMux(PORTA, 3, PORT_MUX_ALT3);  /* I2C0_SDA */
-    
-    /* Configure as open-drain (required for I2C) */
-    PORT_SetOpenDrain(PORTA, 2, true);
-    PORT_SetOpenDrain(PORTA, 3, true);
-    
-    /* Enable internal pull-ups (if no external pull-ups) */
-    PORT_SetPullUp(PORTA, 2);
-    PORT_SetPullUp(PORTA, 3);
-    
-    /* Step 3: Configure I2C Master */
-    I2C_MasterConfig_t config = {
-        .baudRate = 100000,          /* 100 kHz - Standard mode */
-        .prescaler = 0,              /* No prescaler */
-        .enableMaster = true,
-        .enableDebug = false
-    };
-    
-    /* Step 4: Initialize with 8 MHz source clock */
-    uint32_t srcClock = 8000000;
-    I2C_Status_t status = I2C_MasterInit(LPI2C0, &config, srcClock);
-    
-    if (status == I2C_STATUS_SUCCESS) {
-        printf("I2C initialized successfully!\n");
-    } else {
-        printf("I2C initialization failed!\n");
-    }
-}
 
-    printf("Scan complete: %d device(s) found\n", devicesFound);
-}
+
 
 /*******************************************************************************
  * Main Function
@@ -542,7 +503,7 @@ void Example11_BusScan(void)
 /**
  * @brief Main function - runs all LCD examples
  */
-void I2C_ExamplesMain(void)
+int main(void)
 {
     /* Example 1: Initialize I2C and LCD */
     Example1_BasicInit();

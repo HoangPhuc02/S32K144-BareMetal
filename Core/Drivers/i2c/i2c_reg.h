@@ -286,11 +286,6 @@ typedef struct {
 /** @brief Read receive data */
 #define LPI2C_READ_DATA(base)           ((base)->MRDR)
 
-/*******************************************************************************
- * PCC Index for LPI2C Clock Control
- ******************************************************************************/
 
-/** @brief PCC index for LPI2C0 */
-#define PCC_LPI2C0_INDEX                (102U)
 
 #endif /* I2C_REG_H */

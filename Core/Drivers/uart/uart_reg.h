@@ -421,17 +421,6 @@ typedef struct {
 /** @brief Disable receive interrupt */
 #define LPUART_DISABLE_RX_INT(base)     ((base)->CTRL &= ~LPUART_CTRL_RIE_MASK)
 
-/*******************************************************************************
- * PCC Index for LPUART Clock Control
- ******************************************************************************/
 
-/** @brief PCC index for LPUART0 */
-#define PCC_LPUART0_INDEX               (106U)
-
-/** @brief PCC index for LPUART1 */
-#define PCC_LPUART1_INDEX               (107U)
-
-/** @brief PCC index for LPUART2 */
-#define PCC_LPUART2_INDEX               (108U)
 
 #endif /* UART_REG_H */

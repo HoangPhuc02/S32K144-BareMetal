@@ -53,7 +53,7 @@
 #define     __O     volatile             /*!< Defines 'write only' permissions                */
 #define     __IO    volatile             /*!< Defines 'read / write' permissions              */
 #endif
-
+#define NULL (void*)0
 
 /**
 * @brief 32 bits memory read macro.
