@@ -4,7 +4,7 @@
  * @details Implementation of UART driver functions for serial communication
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  */
 

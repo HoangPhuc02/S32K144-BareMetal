@@ -13,7 +13,7 @@
  * - Interrupt vector numbers (IRQn_Type) for S32K144
  *
  * @author  PhucPH32
- * @date    November 23, 2025
+ * @date    23/11/2025
  * @version 1.0
  *
  * @note    This file contains device-specific interrupt numbers. Keep in sync

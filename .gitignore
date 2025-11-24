@@ -1,6 +1,57 @@
-.project
-.deescription.txt
-.settings/
-.Debug_Configurations
+# S32 Design Studio Project Files
+*.project
+*.cproject
 .cproject
-/Debug_FLASH/
+.project
+.settings/
+.metadata/
+.launches/
+
+# Build Output Directories
+Debug/
+Debug_FLASH/
+Debug_RAM/
+Release/
+Release_FLASH/
+Release_RAM/
+*.d
+*.o
+*.elf
+*.map
+*.hex
+*.bin
+*.s19
+*.srec
+
+# S32DS Specific
+.Debug_Configurations/
+*.launch
+S32DS/
+
+# IDE Generated Files
+*.swp
+*.bak
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation Build
+/Doxygen/html/
+/Doxygen/latex/
+
+# Temporary Files
+*.tmp
+*.log
+*.args
+
+# Middleware (if generated)
+*/HMI
+
+# MCUXpresso / S32 SDK Generated
+sdk/
+SDK/
+*.mex.bak
+
+# Description file
+.deescription.txt
+description.txt

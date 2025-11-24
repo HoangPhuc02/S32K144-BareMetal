@@ -5,7 +5,7 @@
  *          for pin multiplexing and configuration.
  * 
  * @author PhucPH32
- * @date November 22, 2025
+ * @date 23/11/2025
  * @version 1.0
  * 
  * @note This implementation provides PORT configuration functionality

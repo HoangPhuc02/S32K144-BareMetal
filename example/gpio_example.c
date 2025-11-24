@@ -5,7 +5,7 @@
  *          including RGB LED control, button polling, and button interrupts.
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    Hardware connections:

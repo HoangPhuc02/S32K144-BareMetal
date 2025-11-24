@@ -5,7 +5,7 @@
  *          multiplexing, configuration, and interrupt control.
  * 
  * @author  PhucPH32
- * @date    November 22, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    This driver provides PORT configuration and pin muxing functionality

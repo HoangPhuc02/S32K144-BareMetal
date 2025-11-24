@@ -4,7 +4,7 @@
  * @details HD44780-based LCD with PCF8574 I2C adapter in 4-bit mode
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  */
 

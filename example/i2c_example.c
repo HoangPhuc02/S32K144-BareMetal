@@ -5,7 +5,7 @@
  *          the I2C driver with LCD 16x2 display via PCF8574 I2C adapter.
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    Hardware connections:

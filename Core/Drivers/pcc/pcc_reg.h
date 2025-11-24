@@ -5,7 +5,7 @@
  *          for direct hardware access including peripheral clock control.
  * 
  * @author  PhucPH32
- * @date    November 22, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    These are raw register definitions for PCC peripheral

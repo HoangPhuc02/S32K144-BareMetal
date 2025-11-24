@@ -5,7 +5,7 @@
  *          and macros for direct hardware access.
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    These are raw register definitions for LPI2C peripheral

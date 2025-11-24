@@ -4,7 +4,7 @@
  * @details Implementation of I2C driver functions for master and slave operations
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  */
 

@@ -2,7 +2,7 @@
  * @file    systick_reg.h
  * @brief   SysTick Timer Register Definitions for ARM Cortex-M4
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  */
 
 #ifndef SYSTICK_REG_H

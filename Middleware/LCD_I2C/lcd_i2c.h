@@ -5,7 +5,7 @@
  *          in 4-bit mode communication.
  * 
  * @author  PhucPH32
- * @date    November 24, 2025
+ * @date    23/11/2025
  * @version 1.0
  * 
  * @note    Default I2C address: 0x27 (7-bit address)
