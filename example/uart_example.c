@@ -1,533 +1,436 @@
 /**
- * @file    uart_example.c
- * @brief   LPUART Driver Usage Examples for S32K144
- * @details This file contains practical examples demonstrating how to use
- *          the UART driver for various common applications.
+ * @file    port_reg.h
+ * @brief   PORT Register Definitions for S32K144
+ * @details This file contains low-level PORT register definitions and macros
+ *          for direct hardware access including pin muxing and configuration.
  * 
  * @author  PhucPH32
  * @date    23/11/2025
  * @version 1.0
  * 
- * @note    Hardware connections:
- *          - PTB0: LPUART0_RX
- *          - PTB1: LPUART0_TX
+ * @note    These are raw register definitions for PORT peripheral
+ * @warning Direct register access - use with caution
+ *
+ * @par     Change Log:
+ * - Version 1.0 (Nov 22, 2025): Initial version
+ *
  */
+
+#ifndef PORT_REG_H
+#define PORT_REG_H
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include "uart.h"
-#include "port.h"
-#include "gpio.h"
-#include "pcc_reg.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include <stdint.h>
+#include "def_reg.h"
+
 
 /*******************************************************************************
- * Definitions
+ * PORT Register Structure
  ******************************************************************************/
 
-#define RX_BUFFER_SIZE      128
-#define CMD_BUFFER_SIZE     64
+/** @brief PORT - Size of Registers Arrays */
+#define PORT_PCRn_COUNT        (32U)  /**< Number of PCR registers per PORT */
+
+/**
+ * @brief PORT register structure definition
+ */
+typedef struct {
+    __IO uint32_t PCR[PORT_PCRn_COUNT];     /**< Offset: 0x000-0x07C - Pin Control Register array */
+    __O  uint32_t GPCLR;                    /**< Offset: 0x080 - Global Pin Control Low Register */
+    __O  uint32_t GPCHR;                    /**< Offset: 0x084 - Global Pin Control High Register */
+    __O  uint32_t GICLR;                    /**< Offset: 0x088 - Global Interrupt Control Low Register */
+    __O  uint32_t GICHR;                    /**< Offset: 0x08C - Global Interrupt Control High Register */
+         uint32_t RESERVED_0[4];            /**< Reserved */
+    __IO uint32_t ISFR;                     /**< Offset: 0x0A0 - Interrupt Status Flag Register */
+         uint32_t RESERVED_1[7];            /**< Reserved */
+    __IO uint32_t DFER;                 /**< Offset: 0x0C0 - Digital Filter Enable Register */
+    __IO uint32_t DFCR;                 /**< Offset: 0x0C4 - Digital Filter Clock Register */
+    __IO uint32_t DFWR;                 /**< Offset: 0x0C8 - Digital Filter Width Register */
+} PORT_Type;
+
+ /** Number of instances of the PORT module. */
+#define PORT_INSTANCE_COUNT                      (5u)
 
 /*******************************************************************************
- * Global Variables
+ * PORT Base Addresses
  ******************************************************************************/
 
-static uint8_t rxBuffer[RX_BUFFER_SIZE];
-static char cmdBuffer[CMD_BUFFER_SIZE];
+/** @brief PORT A base address */
+#define PORTA_BASE_ADDR         (0x40049000UL)
+
+/** @brief PORT B base address */
+#define PORTB_BASE_ADDR         (0x4004A000UL)
+
+/** @brief PORT C base address */
+#define PORTC_BASE_ADDR         (0x4004B000UL)
+
+/** @brief PORT D base address */
+#define PORTD_BASE_ADDR         (0x4004C000UL)
+
+/** @brief PORT E base address */
+#define PORTE_BASE_ADDR         (0x4004D000UL)
+
+/** Array initializer of PORT peripheral base addresses */
+#define PORT_BASE_ADDRS         { PORTA_BASE_ADDR, PORTB_BASE_ADDR, PORTC_BASE_ADDR, PORTD_BASE_ADDR, PORTE_BASE_ADDR }
 
 /*******************************************************************************
- * Example 1: Basic UART Initialization
+ * PORT Register Pointers
  ******************************************************************************/
 
-/**
- * @brief Initialize UART0 with default configuration
- */
-void Example1_BasicInit(void)
-{
-    /* Step 1: Enable peripheral clocks */
-    UART_EnableClock(0);             /* Enable LPUART0 clock */
-    PORT_EnableClock(PORT_B);        /* Enable PORTB clock */
-    
-    /* Step 2: Configure UART pins (PTB0=RX, PTB1=TX) */
-    PORT_SetPinMux(PORTB, 0, PORT_MUX_ALT2);  /* LPUART0_RX */
-    PORT_SetPinMux(PORTB, 1, PORT_MUX_ALT2);  /* LPUART0_TX */
-    
-    /* Step 3: Get default configuration (115200-8-N-1) */
-    UART_Config_t config;
-    UART_GetDefaultConfig(&config);
-    
-    /* Or customize configuration */
-    config.baudRate = 115200;
-    config.parity = UART_PARITY_DISABLED;
-    config.stopBits = UART_ONE_STOP_BIT;
-    config.dataBits = UART_8_DATA_BITS;
-    config.enableTx = true;
-    config.enableRx = true;
-    
-    /* Step 4: Initialize UART with 8 MHz source clock */
-    uint32_t srcClock = 8000000;
-    UART_Status_t status = UART_Init(LPUART0, &config, srcClock);
-    
-    if (status == UART_STATUS_SUCCESS) {
-        printf("UART initialized successfully!\n");
-    } else {
-        printf("UART initialization failed!\n");
-    }
-}
+/** @brief PORT A register pointer */
+#define PORTA                   ((PORT_Type *)PORTA_BASE_ADDR)
+
+/** @brief PORT B register pointer */
+#define PORTB                   ((PORT_Type *)PORTB_BASE_ADDR)
+
+/** @brief PORT C register pointer */
+#define PORTC                   ((PORT_Type *)PORTC_BASE_ADDR)
+
+/** @brief PORT D register pointer */
+#define PORTD                   ((PORT_Type *)PORTD_BASE_ADDR)
+
+/** @brief PORT E register pointer */
+#define PORTE                   ((PORT_Type *)PORTE_BASE_ADDR)
+
+/** Array initializer of PORT peripheral base pointers */
+#define PORT_BASE_PTRS          { PORTA, PORTB, PORTC, PORTD, PORTE }
 
 /*******************************************************************************
- * Example 2: Send String
+ * PCR (Pin Control Register) Bit Definitions
  ******************************************************************************/
 
-/**
- * @brief Send a string via UART
- */
-void Example2_SendString(const char *str)
-{
-    UART_Status_t status;
-    
-    status = UART_SendBlocking(LPUART0, (const uint8_t *)str, strlen(str));
-    
-    if (status == UART_STATUS_SUCCESS) {
-        printf("String sent successfully\n");
-    } else if (status == UART_STATUS_TIMEOUT) {
-        printf("Send timeout\n");
-    }
-}
+/* Pull Select (PS) */
+#define PORT_PCR_PS_MASK                         0x1u
+#define PORT_PCR_PS_SHIFT                        0u
+#define PORT_PCR_PS_WIDTH                        1u
+#define PORT_PCR_PS(x)                           (((uint32_t)(((uint32_t)(x))<<PORT_PCR_PS_SHIFT))&PORT_PCR_PS_MASK)
 
-/**
- * @brief Complete send string example
- */
-void Example2_Complete(void)
-{
-    printf("\n=== Send String Example ===\n");
-    
-    Example2_SendString("Hello from S32K144!\r\n");
-    Example2_SendString("UART is working correctly.\r\n");
-    Example2_SendString("Line 3 of text.\r\n");
-}
+/* Pull Enable (PE) */
+#define PORT_PCR_PE_MASK                         0x2u
+#define PORT_PCR_PE_SHIFT                        1u
+#define PORT_PCR_PE_WIDTH                        1u
+#define PORT_PCR_PE(x)                           (((uint32_t)(((uint32_t)(x))<<PORT_PCR_PE_SHIFT))&PORT_PCR_PE_MASK)
+
+/* Passive Filter Enable (PFE) */
+#define PORT_PCR_PFE_MASK                        0x10u
+#define PORT_PCR_PFE_SHIFT                       4u
+#define PORT_PCR_PFE_WIDTH                       1u
+#define PORT_PCR_PFE(x)                          (((uint32_t)(((uint32_t)(x))<<PORT_PCR_PFE_SHIFT))&PORT_PCR_PFE_MASK)
+
+/* Drive Strength Enable (DSE) */
+#define PORT_PCR_DSE_MASK                        0x40u
+#define PORT_PCR_DSE_SHIFT                       6u
+#define PORT_PCR_DSE_WIDTH                       1u
+#define PORT_PCR_DSE(x)                          (((uint32_t)(((uint32_t)(x))<<PORT_PCR_DSE_SHIFT))&PORT_PCR_DSE_MASK)
+
+/* Pin Mux Control (MUX) */
+#define PORT_PCR_MUX_MASK                        0x700u
+#define PORT_PCR_MUX_SHIFT                       8u
+#define PORT_PCR_MUX_WIDTH                       3u
+#define PORT_PCR_MUX(x)                          (((uint32_t)(((uint32_t)(x))<<PORT_PCR_MUX_SHIFT))&PORT_PCR_MUX_MASK)
+
+/* Lock Register (LK) */
+#define PORT_PCR_LK_MASK                         0x8000u
+#define PORT_PCR_LK_SHIFT                        15u
+#define PORT_PCR_LK_WIDTH                        1u
+#define PORT_PCR_LK(x)                           (((uint32_t)(((uint32_t)(x))<<PORT_PCR_LK_SHIFT))&PORT_PCR_LK_MASK)
+
+/* Interrupt Configuration (IRQC) */
+#define PORT_PCR_IRQC_MASK                       0xF0000u
+#define PORT_PCR_IRQC_SHIFT                      16u
+#define PORT_PCR_IRQC_WIDTH                      4u
+#define PORT_PCR_IRQC(x)                         (((uint32_t)(((uint32_t)(x))<<PORT_PCR_IRQC_SHIFT))&PORT_PCR_IRQC_MASK)
+
+/* Interrupt Status Flag (ISF) */
+#define PORT_PCR_ISF_MASK                        0x1000000u
+#define PORT_PCR_ISF_SHIFT                       24u
+#define PORT_PCR_ISF_WIDTH                       1u
+#define PORT_PCR_ISF(x)                          (((uint32_t)(((uint32_t)(x))<<PORT_PCR_ISF_SHIFT))&PORT_PCR_ISF_MASK)
+
 
 /*******************************************************************************
- * Example 3: Printf Implementation
+ * GPCLR (Global Pin Control Low Register) Bit Definitions
  ******************************************************************************/
 
-/**
- * @brief UART printf implementation
- */
-void UART_Printf(const char *format, ...)
-{
-    char buffer[128];
-    va_list args;
-    
-    va_start(args, format);
-    int len = vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    
-    if (len > 0) {
-        UART_SendBlocking(LPUART0, (uint8_t *)buffer, len);
-    }
-}
+/* Global Pin Write Data (GPWD) */
+#define PORT_GPCLR_GPWD_MASK                     0xFFFFu
+#define PORT_GPCLR_GPWD_SHIFT                    0u
+#define PORT_GPCLR_GPWD_WIDTH                    16u
+#define PORT_GPCLR_GPWD(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GPCLR_GPWD_SHIFT))&PORT_GPCLR_GPWD_MASK)
 
-/**
- * @brief Complete printf example
- */
-void Example3_PrintfDemo(void)
-{
-    int counter = 0;
-    float voltage = 3.3f;
-    
-    printf("\n=== Printf Example ===\n");
-    
-    UART_Printf("Counter: %d\r\n", counter++);
-    UART_Printf("Voltage: %.2f V\r\n", voltage);
-    UART_Printf("Temperature: %d C\r\n", 25);
-    UART_Printf("Hex value: 0x%04X\r\n", 0xABCD);
-    UART_Printf("Binary: 0b%08b\r\n", 0b10101010);
-}
+/* Global Pin Write Enable (GPWE) */
+#define PORT_GPCLR_GPWE_MASK                     0xFFFF0000u
+#define PORT_GPCLR_GPWE_SHIFT                    16u
+#define PORT_GPCLR_GPWE_WIDTH                    16u
+#define PORT_GPCLR_GPWE(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GPCLR_GPWE_SHIFT))&PORT_GPCLR_GPWE_MASK)
+
 
 /*******************************************************************************
- * Example 4: Receive Data
+ * GPCHR (Global Pin Control High Register) Bit Definitions
  ******************************************************************************/
 
-/**
- * @brief Receive a single byte with timeout
- */
-bool Example4_ReceiveByteTimeout(uint8_t *data, uint32_t timeout_ms)
-{
-    uint32_t startTime = 0;  /* Replace with actual tick counter */
-    
-    while (startTime < timeout_ms) {
-        if (UART_IsRxReady(LPUART0)) {
-            return (UART_ReceiveByte(LPUART0, data) == UART_STATUS_SUCCESS);
-        }
-        
-        /* Increment time counter */
-        for (volatile uint32_t i = 0; i < 1000; i++);
-        startTime++;
-    }
-    
-    return false;  /* Timeout */
-}
+/* Global Pin Write Data (GPWD) */
+#define PORT_GPCHR_GPWD_MASK                     0xFFFFu
+#define PORT_GPCHR_GPWD_SHIFT                    0u
+#define PORT_GPCHR_GPWD_WIDTH                    16u
+#define PORT_GPCHR_GPWD(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GPCHR_GPWD_SHIFT))&PORT_GPCHR_GPWD_MASK)
 
-/**
- * @brief Receive a line (until \n or \r)
- */
-uint32_t Example4_ReceiveLine(char *buffer, uint32_t maxLen)
-{
-    uint32_t count = 0;
-    uint8_t ch;
-    
-    while (count < (maxLen - 1)) {
-        if (UART_ReceiveByte(LPUART0, &ch) == UART_STATUS_SUCCESS) {
-            if (ch == '\n' || ch == '\r') {
-                break;
-            }
-            buffer[count++] = ch;
-        }
-    }
-    
-    buffer[count] = '\0';  /* Null terminate */
-    return count;
-}
-
-/**
- * @brief Complete receive example
- */
-void Example4_ReceiveDemo(void)
-{
-    printf("\n=== Receive Example ===\n");
-    UART_Printf("Type something and press Enter:\r\n");
-    
-    char inputBuffer[64];
-    uint32_t len = Example4_ReceiveLine(inputBuffer, sizeof(inputBuffer));
-    
-    UART_Printf("You typed: %s (length=%d)\r\n", inputBuffer, len);
-}
+/* Global Pin Write Enable (GPWE) */
+#define PORT_GPCHR_GPWE_MASK                     0xFFFF0000u
+#define PORT_GPCHR_GPWE_SHIFT                    16u
+#define PORT_GPCHR_GPWE_WIDTH                    16u
+#define PORT_GPCHR_GPWE(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GPCHR_GPWE_SHIFT))&PORT_GPCHR_GPWE_MASK)
 
 /*******************************************************************************
- * Example 5: Echo Application
+ * GICLR (Global Interrupt Control Low Register) Bit Definitions
  ******************************************************************************/
 
-/**
- * @brief Simple echo - receive and send back
- */
-void Example5_SimpleEcho(void)
-{
-    printf("\n=== Echo Example ===\n");
-    UART_Printf("Echo mode - type characters (ESC to exit)\r\n");
-    
-    uint8_t ch;
-    bool running = true;
-    
-    while (running) {
-        if (UART_IsRxReady(LPUART0)) {
-            if (UART_ReceiveByte(LPUART0, &ch) == UART_STATUS_SUCCESS) {
-                /* Check for ESC key */
-                if (ch == 0x1B) {
-                    running = false;
-                    UART_Printf("\r\nEcho mode exited\r\n");
-                } else {
-                    /* Echo back */
-                    UART_SendByte(LPUART0, ch);
-                }
-            }
-        }
-    }
-}
+/* Global Interrupt Write Enable (GIWE) */
+#define PORT_GICLR_GIWE_MASK                     0xFFFFu
+#define PORT_GICLR_GIWE_SHIFT                    0u
+#define PORT_GICLR_GIWE_WIDTH                    16u
+#define PORT_GICLR_GIWE(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GICLR_GIWE_SHIFT))&PORT_GICLR_GIWE_MASK)
+
+/* Global Interrupt Write Data (GIWD) */
+#define PORT_GICLR_GIWD_MASK                     0xFFFF0000u
+#define PORT_GICLR_GIWD_SHIFT                    16u
+#define PORT_GICLR_GIWD_WIDTH                    16u
+#define PORT_GICLR_GIWD(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GICLR_GIWD_SHIFT))&PORT_GICLR_GIWD_MASK)
 
 /*******************************************************************************
- * Example 6: Command Line Interface
+ * GICHR (Global Interrupt Control High Register) Bit Definitions
  ******************************************************************************/
 
-/**
- * @brief Process received command
- */
-void Example6_ProcessCommand(const char *cmd)
-{
-    if (strcmp(cmd, "help") == 0) {
-        UART_Printf("Available commands:\r\n");
-        UART_Printf("  help     - Show this help\r\n");
-        UART_Printf("  status   - Show system status\r\n");
-        UART_Printf("  reset    - Reset the system\r\n");
-        UART_Printf("  led on   - Turn on LED\r\n");
-        UART_Printf("  led off  - Turn off LED\r\n");
-        UART_Printf("  version  - Show firmware version\r\n");
-        
-    } else if (strcmp(cmd, "status") == 0) {
-        UART_Printf("System Status:\r\n");
-        UART_Printf("  CPU: S32K144 @ 80MHz\r\n");
-        UART_Printf("  UART: 115200 baud\r\n");
-        UART_Printf("  Status: OK\r\n");
-        
-    } else if (strcmp(cmd, "reset") == 0) {
-        UART_Printf("Resetting system...\r\n");
-        /* Perform system reset */
-        
-    } else if (strcmp(cmd, "led on") == 0) {
-        UART_Printf("LED turned ON\r\n");
-        /* GPIO_WritePin(PORTD, 15, 1); */
-        
-    } else if (strcmp(cmd, "led off") == 0) {
-        UART_Printf("LED turned OFF\r\n");
-        /* GPIO_WritePin(PORTD, 15, 0); */
-        
-    } else if (strcmp(cmd, "version") == 0) {
-        UART_Printf("Firmware Version: 1.0.0\r\n");
-        UART_Printf("Build Date: %s %s\r\n", __DATE__, __TIME__);
-        
-    } else {
-        UART_Printf("Unknown command: %s\r\n", cmd);
-        UART_Printf("Type 'help' for available commands\r\n");
-    }
-}
+/* Global Interrupt Write Enable (GIWE) */
+#define PORT_GICHR_GIWE_MASK                     0xFFFFu
+#define PORT_GICHR_GIWE_SHIFT                    0u
+#define PORT_GICHR_GIWE_WIDTH                    16u
+#define PORT_GICHR_GIWE(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GICHR_GIWE_SHIFT))&PORT_GICHR_GIWE_MASK)
 
-/**
- * @brief Command line interface task
- */
-void Example6_CLI_Task(void)
-{
-    static uint32_t cmdIndex = 0;
-    uint8_t ch;
-    
-    if (UART_IsRxReady(LPUART0)) {
-        UART_ReceiveByte(LPUART0, &ch);
-        
-        if (ch == '\r' || ch == '\n') {
-            /* Process command */
-            if (cmdIndex > 0) {
-                cmdBuffer[cmdIndex] = '\0';
-                UART_Printf("\r\n");
-                
-                Example6_ProcessCommand(cmdBuffer);
-                
-                cmdIndex = 0;
-            }
-            UART_Printf("\r\n> ");  /* Prompt */
-            
-        } else if (ch == 0x08 || ch == 0x7F) {  /* Backspace */
-            if (cmdIndex > 0) {
-                cmdIndex--;
-                UART_Printf("\b \b");  /* Erase character */
-            }
-            
-        } else if (cmdIndex < (CMD_BUFFER_SIZE - 1)) {
-            cmdBuffer[cmdIndex++] = ch;
-            UART_SendByte(LPUART0, ch);  /* Echo */
-        }
-    }
-}
-
-/**
- * @brief Complete CLI example
- */
-void Example6_CLI_Demo(void)
-{
-    printf("\n=== Command Line Interface ===\n");
-    UART_Printf("\r\nWelcome to S32K144 CLI!\r\n");
-    UART_Printf("Type 'help' for available commands\r\n");
-    UART_Printf("> ");
-    
-    /* Run for a limited time (or indefinitely in real application) */
-    for (int i = 0; i < 1000; i++) {
-        Example6_CLI_Task();
-        
-        /* Small delay */
-        for (volatile uint32_t d = 0; d < 10000; d++);
-    }
-}
+/* Global Interrupt Write Data (GIWD) */
+#define PORT_GICHR_GIWD_MASK                     0xFFFF0000u
+#define PORT_GICHR_GIWD_SHIFT                    16u
+#define PORT_GICHR_GIWD_WIDTH                    16u
+#define PORT_GICHR_GIWD(x)                       (((uint32_t)(((uint32_t)(x))<<PORT_GICHR_GIWD_SHIFT))&PORT_GICHR_GIWD_MASK)
 
 /*******************************************************************************
- * Example 7: Data Logging
+ * ISFR (Interrupt Status Flag Register) Bit Definitions
+ ******************************************************************************/
+
+/* Interrupt Status Flag (ISF) */
+#define PORT_ISFR_ISF_MASK                       0xFFFFFFFFu
+#define PORT_ISFR_ISF_SHIFT                      0u
+#define PORT_ISFR_ISF_WIDTH                      32u
+#define PORT_ISFR_ISF(x)                         (((uint32_t)(((uint32_t)(x))<<PORT_ISFR_ISF_SHIFT))&PORT_ISFR_ISF_MASK)
+
+/*******************************************************************************
+ * DFER (Digital Filter Enable Register) Bit Definitions
+ ******************************************************************************/
+
+/* Digital Filter Enable (DFE) */
+#define PORT_DFER_DFE_MASK                       0xFFFFFFFFu
+#define PORT_DFER_DFE_SHIFT                      0u
+#define PORT_DFER_DFE_WIDTH                      32u
+#define PORT_DFER_DFE(x)                         (((uint32_t)(((uint32_t)(x))<<PORT_DFER_DFE_SHIFT))&PORT_DFER_DFE_MASK)
+
+/*******************************************************************************
+ * DFCR (Digital Filter Clock Register) Bit Definitions
+ ******************************************************************************/
+
+/* Clock Source (CS) */
+#define PORT_DFCR_CS_MASK                        0x1u
+#define PORT_DFCR_CS_SHIFT                       0u
+#define PORT_DFCR_CS_WIDTH                       1u
+#define PORT_DFCR_CS(x)                          (((uint32_t)(((uint32_t)(x))<<PORT_DFCR_CS_SHIFT))&PORT_DFCR_CS_MASK)
+
+/*******************************************************************************
+ * DFWR (Digital Filter Width Register) Bit Definitions
+ ******************************************************************************/
+
+/* Filter Length (FILT) */
+#define PORT_DFWR_FILT_MASK                      0x1Fu
+#define PORT_DFWR_FILT_SHIFT                     0u
+#define PORT_DFWR_FILT_WIDTH                     5u
+#define PORT_DFWR_FILT(x)                        (((uint32_t)(((uint32_t)(x))<<PORT_DFWR_FILT_SHIFT))&PORT_DFWR_FILT_MASK)
+
+
+/*******************************************************************************
+ * PORT Helper Macros
  ******************************************************************************/
 
 /**
- * @brief Log sensor data to UART
+ * @brief Enable PORT clock
+ * @param pccIndex PCC index for PORT (PCC_PORTx_INDEX)
  */
-void Example7_LogData(void)
-{
-    static uint32_t logCounter = 0;
-    
-    /* Simulate sensor readings */
-    float temperature = 25.5f + (logCounter % 10) * 0.1f;
-    float humidity = 60.0f + (logCounter % 20) * 0.5f;
-    uint16_t pressure = 1013 + (logCounter % 5);
-    
-    /* Create CSV format log */
-    UART_Printf("%lu,%.2f,%.2f,%u\r\n", 
-                logCounter, temperature, humidity, pressure);
-    
-    logCounter++;
-}
+#define PORT_ENABLE_CLOCK(pccIndex)     (PCC->PCCn[pccIndex] |= PCC_CGC_MASK)
 
 /**
- * @brief Complete data logging example
+ * @brief Disable PORT clock
+ * @param pccIndex PCC index for PORT (PCC_PORTx_INDEX)
  */
-void Example7_DataLogging(void)
-{
-    printf("\n=== Data Logging Example ===\n");
-    
-    /* Send CSV header */
-    UART_Printf("Counter,Temperature(C),Humidity(%%),Pressure(hPa)\r\n");
-    
-    /* Log 10 samples */
-    for (int i = 0; i < 10; i++) {
-        Example7_LogData();
-        
-        /* Delay 1 second */
-        for (volatile uint32_t d = 0; d < 1000000; d++);
-    }
-    
-    UART_Printf("Logging complete\r\n");
-}
+#define PORT_DISABLE_CLOCK(pccIndex)    (PCC->PCCn[pccIndex] &= ~PCC_CGC_MASK)
+
+/**
+ * @brief Check if PORT clock is enabled
+ * @param pccIndex PCC index for PORT (PCC_PORTx_INDEX)
+ * @return 1 if enabled, 0 if disabled
+ */
+#define PORT_IS_CLOCK_ENABLED(pccIndex) ((PCC->PCCn[pccIndex] & PCC_CGC_MASK) != 0U)
+
+/**
+ * @brief Set pin MUX
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @param mux MUX value (PORT_MUX_xxx)
+ */
+#define PORT_SET_MUX(base, pin, mux) \
+    do { \
+        (base)->PCR[pin] = ((base)->PCR[pin] & ~PORT_PCR_MUX_MASK) | PORT_PCR_MUX(mux); \
+    } while(0)
+
+/**
+ * @brief Get pin MUX
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @return Current MUX value
+ */
+#define PORT_GET_MUX(base, pin) \
+    (((base)->PCR[pin] & PORT_PCR_MUX_MASK) >> PORT_PCR_MUX_SHIFT)
+
+/**
+ * @brief Enable pull resistor
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @param pullup 1 for pull-up, 0 for pull-down
+ */
+#define PORT_ENABLE_PULL(base, pin, pullup) \
+    do { \
+        (base)->PCR[pin] = ((base)->PCR[pin] & ~PORT_PCR_PS_MASK) | \
+                          PORT_PCR_PE(1) | PORT_PCR_PS(pullup); \
+    } while(0)
+
+/**
+ * @brief Disable pull resistor
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_DISABLE_PULL(base, pin) \
+    ((base)->PCR[pin] &= ~PORT_PCR_PE_MASK)
+
+/**
+ * @brief Set pin interrupt configuration
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @param irqc Interrupt configuration (PORT_IRQC_xxx)
+ */
+#define PORT_SET_IRQC(base, pin, irqc) \
+    do { \
+        (base)->PCR[pin] = ((base)->PCR[pin] & ~PORT_PCR_IRQC_MASK) | PORT_PCR_IRQC(irqc); \
+    } while(0)
+
+/**
+ * @brief Clear pin interrupt flag
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_CLEAR_ISF(base, pin) \
+    ((base)->PCR[pin] |= PORT_PCR_ISF_MASK)
+
+/**
+ * @brief Get pin interrupt flag status
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @return 1 if flag is set, 0 otherwise
+ */
+#define PORT_GET_ISF(base, pin) \
+    (((base)->PCR[pin] & PORT_PCR_ISF_MASK) != 0U)
+
+/**
+ * @brief Get all interrupt status flags for port
+ * @param base PORT base pointer
+ * @return ISFR register value
+ */
+#define PORT_GET_ISFR(base) \
+    ((base)->ISFR)
+
+/**
+ * @brief Clear all interrupt flags for port
+ * @param base PORT base pointer
+ * @param mask Pin mask
+ */
+#define PORT_CLEAR_ISFR(base, mask) \
+    ((base)->ISFR = (mask))
+
+/**
+ * @brief Enable drive strength
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_ENABLE_HIGH_DRIVE(base, pin) \
+    ((base)->PCR[pin] |= PORT_PCR_DSE_MASK)
+
+/**
+ * @brief Disable drive strength (set to low)
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_DISABLE_HIGH_DRIVE(base, pin) \
+    ((base)->PCR[pin] &= ~PORT_PCR_DSE_MASK)
+
+/**
+ * @brief Enable passive filter
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_ENABLE_PASSIVE_FILTER(base, pin) \
+    ((base)->PCR[pin] |= PORT_PCR_PFE_MASK)
+
+/**
+ * @brief Disable passive filter
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_DISABLE_PASSIVE_FILTER(base, pin) \
+    ((base)->PCR[pin] &= ~PORT_PCR_PFE_MASK)
+
+/**
+ * @brief Enable digital filter for pin
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_ENABLE_DIGITAL_FILTER(base, pin) \
+    ((base)->DFER |= (1U << (pin)))
+
+/**
+ * @brief Disable digital filter for pin
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ */
+#define PORT_DISABLE_DIGITAL_FILTER(base, pin) \
+    ((base)->DFER &= ~(1U << (pin)))
+
+/**
+ * @brief Complete pin configuration
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @param pcr Complete PCR register value
+ */
+#define PORT_SET_PCR(base, pin, pcr) \
+    ((base)->PCR[pin] = (pcr))
+
+/**
+ * @brief Get pin configuration
+ * @param base PORT base pointer
+ * @param pin Pin number (0-31)
+ * @return PCR register value
+ */
+#define PORT_GET_PCR(base, pin) \
+    ((base)->PCR[pin])
+
+#endif /* PORT_REG_H */
 
 /*******************************************************************************
- * Example 8: Error Handling
+ * EOF
  ******************************************************************************/
-
-/**
- * @brief Demonstrate error detection and handling
- */
-void Example8_ErrorHandling(void)
-{
-    printf("\n=== Error Handling Example ===\n");
-    
-    /* Check for various errors */
-    UART_Status_t error = UART_GetError(LPUART0);
-    
-    switch (error) {
-        case UART_STATUS_SUCCESS:
-            UART_Printf("No errors detected\r\n");
-            break;
-            
-        case UART_STATUS_PARITY_ERROR:
-            UART_Printf("Parity error detected!\r\n");
-            break;
-            
-        case UART_STATUS_FRAME_ERROR:
-            UART_Printf("Frame error - check baud rate!\r\n");
-            break;
-            
-        case UART_STATUS_NOISE_ERROR:
-            UART_Printf("Noise detected on line\r\n");
-            break;
-            
-        case UART_STATUS_OVERRUN_ERROR:
-            UART_Printf("Data overrun - processing too slow!\r\n");
-            break;
-            
-        default:
-            UART_Printf("Unknown error\r\n");
-            break;
-    }
-    
-    /* Get status flags */
-    uint32_t status = UART_GetStatusFlags(LPUART0);
-    UART_Printf("Status register: 0x%08X\r\n", status);
-    
-    /* Clear error flags */
-    uint32_t errorFlags = LPUART_STAT_PF_MASK | 
-                          LPUART_STAT_FE_MASK |
-                          LPUART_STAT_NF_MASK |
-                          LPUART_STAT_OR_MASK;
-    UART_ClearStatusFlags(LPUART0, errorFlags);
-}
-
-/*******************************************************************************
- * Example 9: Loopback Test
- ******************************************************************************/
-
-/**
- * @brief Test UART with loopback (connect TX to RX)
- */
-void Example9_LoopbackTest(void)
-{
-    printf("\n=== Loopback Test ===\n");
-    UART_Printf("Connect TX to RX for this test\r\n");
-    
-    uint8_t testData[] = {0x55, 0xAA, 0x12, 0x34, 0x56, 0x78};
-    uint8_t rxData[6] = {0};
-    bool testPassed = true;
-    
-    /* Send test data */
-    for (int i = 0; i < 6; i++) {
-        UART_SendByte(LPUART0, testData[i]);
-        
-        /* Small delay */
-        for (volatile uint32_t d = 0; d < 1000; d++);
-        
-        /* Receive */
-        if (UART_ReceiveByte(LPUART0, &rxData[i]) != UART_STATUS_SUCCESS) {
-            testPassed = false;
-            break;
-        }
-    }
-    
-    /* Verify */
-    if (testPassed) {
-        for (int i = 0; i < 6; i++) {
-            if (testData[i] != rxData[i]) {
-                testPassed = false;
-                break;
-            }
-        }
-    }
-    
-    if (testPassed) {
-        UART_Printf("Loopback test PASSED\r\n");
-    } else {
-        UART_Printf("Loopback test FAILED\r\n");
-    }
-    
-    /* Print results */
-    UART_Printf("Sent:     ");
-    for (int i = 0; i < 6; i++) {
-        UART_Printf("0x%02X ", testData[i]);
-    }
-    UART_Printf("\r\nReceived: ");
-    for (int i = 0; i < 6; i++) {
-        UART_Printf("0x%02X ", rxData[i]);
-    }
-    UART_Printf("\r\n");
-}
-
-/*******************************************************************************
- * Main Function
- ******************************************************************************/
-
-/**
- * @brief Main function - runs all examples
- */
-void UART_ExamplesMain(void)
-{
-    /* Example 1: Initialize UART */
-    Example1_BasicInit();
-    
-    /* Example 2: Send string */
-    Example2_Complete();
-    
-    /* Example 3: Printf */
-    Example3_PrintfDemo();
-    
-    /* Example 4: Receive data */
-    Example4_ReceiveDemo();
-    
-    /* Example 5: Echo */
-    Example5_SimpleEcho();
-    
-    /* Example 6: CLI */
-    Example6_CLI_Demo();
-    
-    /* Example 7: Data logging */
-    Example7_DataLogging();
-    
-    /* Example 8: Error handling */
-    Example8_ErrorHandling();
-    
-    /* Example 9: Loopback test */
-    Example9_LoopbackTest();
-    
-    UART_Printf("\n=== All UART examples completed! ===\n");
-}
