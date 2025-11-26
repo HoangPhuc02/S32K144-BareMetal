@@ -457,19 +457,24 @@ void Example11_BusScan(void)
     
     /* Scan addresses 0x08 to 0x77 */
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        /* Try to start communication with this address */
         I2C_Status_t status = I2C_MasterStart(LPI2C0, addr, I2C_WRITE);
         
         if (status == I2C_STATUS_SUCCESS) {
+            /* Device found - ACK received */
             if (devicesFound < 10) {
                 foundAddrs[devicesFound] = addr;
             }
             devicesFound++;
+            
+            /* Send STOP condition */
             I2C_MasterStop(LPI2C0);
             
             printf("Device found at 0x%02X\n", addr);
         }
+        /* If NACK, the function already sent STOP internally */
         
-        /* Small delay */
+        /* Small delay between scans */
         for (volatile uint32_t i = 0; i < 1000; i++);
     }
     

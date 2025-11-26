@@ -62,8 +62,8 @@ I2C_Status_t I2C_MasterInit(LPI2C_RegType *base, const I2C_MasterConfig_t *confi
     baudRateHz = config->baudRate;
     
     /* Simple calculation for standard mode (100kHz) or fast mode (400kHz) */
-    /* CLKLO = CLKHI = (srcClock / (2^prescaler * baudRate * 2)) - 2 */
-    clkLo = clkHi = ((srcClock / (1U << prescaler)) / (baudRateHz * 2U)) - 2U;
+    /* CLKLO = CLKHI = (srcClock / (2^prescaler * baudRate * 2)) - 1 */
+    clkLo = clkHi = ((srcClock / (1U << prescaler)) / (baudRateHz * 2U)) - 1U;
     
     if (clkLo > 63U) clkLo = 63U;
     if (clkHi > 63U) clkHi = 63U;
@@ -118,9 +118,12 @@ I2C_Status_t I2C_MasterStart(LPI2C_RegType *base, uint8_t slaveAddress, I2C_Dire
     }
 
     /* Check if bus is busy */
-    if (LPI2C_IS_BUS_BUSY(base)) {
+    if (LPI2C_IS_MASTER_BUSY(base)) {
         return I2C_STATUS_BUSY;
     }
+
+    /* Clear any previous error flags */
+    base->MSR = LPI2C_MSR_NDF_MASK | LPI2C_MSR_ALF_MASK | LPI2C_MSR_FEF_MASK | LPI2C_MSR_SDF_MASK | LPI2C_MSR_EPF_MASK;
 
     /* Prepare address with R/W bit */
     cmdData = I2C_CMD_START | ((uint16_t)slaveAddress << 1) | (uint16_t)direction;
@@ -136,6 +139,29 @@ I2C_Status_t I2C_MasterStart(LPI2C_RegType *base, uint8_t slaveAddress, I2C_Dire
 
     /* Send START + Address + R/W */
     LPI2C_WRITE_DATA(base, cmdData);
+
+    /* Wait for address transfer to complete or NACK */
+    timeout = I2C_TIMEOUT_COUNT;
+    while ((timeout > 0U) && !LPI2C_IS_TX_READY(base)) {
+        /* Check for NACK */
+        if ((base->MSR & LPI2C_MSR_NDF_MASK) != 0U) {
+            /* Clear NACK flag */
+            base->MSR = LPI2C_MSR_NDF_MASK;
+            /* Send STOP to release bus */
+            LPI2C_WRITE_DATA(base, I2C_CMD_STOP);
+            /* Wait for STOP to complete */
+            timeout = I2C_TIMEOUT_COUNT;
+            while (LPI2C_IS_MASTER_BUSY(base) && (timeout > 0U)) {
+                timeout--;
+            }
+            return I2C_STATUS_NACK;
+        }
+        timeout--;
+    }
+
+    if (timeout == 0U) {
+        return I2C_STATUS_TIMEOUT;
+    }
 
     return I2C_STATUS_SUCCESS;
 }
@@ -168,7 +194,22 @@ I2C_Status_t I2C_MasterSend(LPI2C_RegType *base, const uint8_t *txBuff, uint32_t
         /* Write data */
         LPI2C_WRITE_DATA(base, I2C_CMD_TRANSMIT | txBuff[i]);
 
-        /* Check for NACK */
+        /* Wait for data to be transmitted */
+        timeout = I2C_TIMEOUT_COUNT;
+        while (!LPI2C_IS_TX_READY(base) && (timeout > 0U)) {
+            /* Check for NACK during transmission */
+            if ((base->MSR & LPI2C_MSR_NDF_MASK) != 0U) {
+                base->MSR = LPI2C_MSR_NDF_MASK;  /* Clear flag */
+                return I2C_STATUS_NACK;
+            }
+            timeout--;
+        }
+
+        if (timeout == 0U) {
+            return I2C_STATUS_TIMEOUT;
+        }
+
+        /* Final NACK check after transmission */
         if ((base->MSR & LPI2C_MSR_NDF_MASK) != 0U) {
             base->MSR = LPI2C_MSR_NDF_MASK;  /* Clear flag */
             return I2C_STATUS_NACK;
