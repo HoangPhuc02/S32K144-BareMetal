@@ -45,7 +45,7 @@ Thumbs.db
 *.args
 
 # Middleware (if generated)
-*/HMI
+# */HMI
 
 # MCUXpresso / S32 SDK Generated
 sdk/
