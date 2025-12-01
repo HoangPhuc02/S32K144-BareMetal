@@ -87,6 +87,11 @@ typedef struct {
 #define PCC_LPUART1_INDEX                        107
 #define PCC_LPUART2_INDEX                        108
 
+#define PCC_FLEXCAN0_INDEX                       36
+#define PCC_FLEXCAN1_INDEX                       37
+#define PCC_FLEXCAN2_INDEX                       43
+#define PCC_FTM3_INDEX                           38
+#define PCC_ADC1_INDEX                           39
 
 
 

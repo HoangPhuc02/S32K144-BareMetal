@@ -1,535 +1,629 @@
 /**
- * @file    uart_example.c
- * @brief   LPUART Driver Usage Examples for S32K144
- * @details This file contains practical examples demonstrating how to use
- *          the UART driver for various common applications.
+ * @file    can_example.c
+ * @brief   FlexCAN Driver Examples for S32K144
+ * @details Collection of examples using the CAN driver
  * 
  * @author  PhucPH32
- * @date    23/11/2025
+ * @date    30/11/2025
  * @version 1.0
- * 
- * @note    Hardware connections:
- *          - PTC6: LPUART1_TX
- *          - PTC7: LPUART1_RX
- *          This example uses the OpenSDA USB port on the board to run UART
  */
 
-/*******************************************************************************
- * Includes
- ******************************************************************************/
-#include "uart.h"
-#include "port.h"
+#include "can.h"
 #include "gpio.h"
-#include "pcc_reg.h"
 #include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
 
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 
-#define RX_BUFFER_SIZE      128
-#define CMD_BUFFER_SIZE     64
+/* CAN message IDs */
+#define CAN_ID_SENSOR_DATA      (0x100U)
+#define CAN_ID_CONTROL_CMD      (0x200U)
+#define CAN_ID_STATUS           (0x300U)
+#define CAN_ID_HEARTBEAT        (0x400U)
+
+/* LED pin */
+#define LED_PORT                GPIO_PORT_D
+#define LED_PIN                 (15U)
 
 /*******************************************************************************
  * Global Variables
  ******************************************************************************/
 
-static uint8_t rxBuffer[RX_BUFFER_SIZE];
-static char cmdBuffer[CMD_BUFFER_SIZE];
+static volatile bool g_rxMessageReceived = false;
+static can_message_t g_lastRxMessage;
 
 /*******************************************************************************
- * Example 1: Basic UART Initialization
+ * Example 1: Basic CAN Send and Receive (Polling)
  ******************************************************************************/
 
-/**
- * @brief Initialize UART0 with default configuration
- */
-void Example1_BasicInit(void)
+void Example1_BasicSendReceive(void)
 {
-    /* Step 1: Enable peripheral clocks */
-    UART_EnableClock(1);             /* Enable LPUART1 clock */
-    PORT_EnableClock(PORT_C);        /* Enable PORTC clock */
+    status_t status;
+    can_message_t txMsg, rxMsg;
     
-    /* Step 2: Configure UART pins (PTC6=TX, PTC7=RX) */
-    PORT_SetPinMux(PORT_C, 6, PORT_MUX_ALT2);  /* LPUART1_TX */
-    PORT_SetPinMux(PORT_C, 7, PORT_MUX_ALT2);  /* LPUART1_RX */
+    /* Configure CAN0 */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,    /* 24 MHz */
+        .baudRate = 500000,                      /* 500 Kbps */
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
     
-    
-    /* Step 3: Get default configuration (115200-8-N-1) */
-    UART_Config_t config;
-    UART_GetDefaultConfig(&config);
-    
-    /* Or customize configuration */
-    config.baudRate = 115200;
-    config.parity = UART_PARITY_DISABLED;
-    config.stopBits = UART_ONE_STOP_BIT;
-    config.dataBits = UART_8_DATA_BITS;
-    config.enableTx = true;
-    config.enableRx = true;
-    
-    /* Step 4: Initialize UART with 8 MHz source clock */
-    uint32_t srcClock = 8000000;
-    UART_Status_t status = UART_Init(LPUART1, &config, srcClock);
-    
-    if (status == UART_STATUS_SUCCESS) {
-        printf("UART initialized successfully!\n");
-    } else {
-        printf("UART initialization failed!\n");
-    }
-}
-
-/*******************************************************************************
- * Example 2: Send String
- ******************************************************************************/
-
-/**
- * @brief Send a string via UART
- */
-void Example2_SendString(const char *str)
-{
-    UART_Status_t status;
-    
-    status = UART_SendBlocking(LPUART1, (const uint8_t *)str, strlen(str));
-    
-    if (status == UART_STATUS_SUCCESS) {
-        printf("String sent successfully\n");
-    } else if (status == UART_STATUS_TIMEOUT) {
-        printf("Send timeout\n");
-    }
-}
-
-/**
- * @brief Complete send string example
- */
-void Example2_Complete(void)
-{
-    printf("\n=== Send String Example ===\n");
-    
-    Example2_SendString("Hello from S32K144!\r\n");
-    Example2_SendString("UART is working correctly.\r\n");
-    Example2_SendString("Line 3 of text.\r\n");
-}
-
-/*******************************************************************************
- * Example 3: Printf Implementation
- ******************************************************************************/
-
-/**
- * @brief UART printf implementation
- */
-void UART_Printf(const char *format, ...)
-{
-    char buffer[128];
-    va_list args;
-    
-    va_start(args, format);
-    int len = vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    
-    if (len > 0) {
-        UART_SendBlocking(LPUART1, (uint8_t *)buffer, len);
-    }
-}
-
-/**
- * @brief Complete printf example
- */
-void Example3_PrintfDemo(void)
-{
-    int counter = 0;
-    float voltage = 3.3f;
-    
-    printf("\n=== Printf Example ===\n");
-    
-    UART_Printf("Counter: %d\r\n", counter++);
-    UART_Printf("Voltage: %.2f V\r\n", voltage);
-    UART_Printf("Temperature: %d C\r\n", 25);
-    UART_Printf("Hex value: 0x%04X\r\n", 0xABCD);
-    UART_Printf("Binary: 0b%08b\r\n", 0b10101010);
-}
-
-/*******************************************************************************
- * Example 4: Receive Data
- ******************************************************************************/
-
-/**
- * @brief Receive a single byte with timeout
- */
-bool Example4_ReceiveByteTimeout(uint8_t *data, uint32_t timeout_ms)
-{
-    uint32_t startTime = 0;  /* Replace with actual tick counter */
-    
-    while (startTime < timeout_ms) {
-        if (UART_IsRxReady(LPUART1)) {
-            return (UART_ReceiveByte(LPUART1, data) == UART_STATUS_SUCCESS);
-        }
-
-        /* Increment time counter */
-        for (volatile uint32_t i = 0; i < 1000; i++);
-        startTime++;
+    /* Initialize CAN */
+    status = CAN_Init(&config);
+    if (status != STATUS_SUCCESS) {
+        printf("CAN Init failed!\n");
+        return;
     }
     
-    return false;  /* Timeout */
-}
-
-/**
- * @brief Receive a line (until \n or \r)
- */
-uint32_t Example4_ReceiveLine(char *buffer, uint32_t maxLen)
-{
-    uint32_t count = 0;
-    uint8_t ch;
+    /* Configure RX filter for ID 0x123 */
+    can_rx_filter_t rxFilter = {
+        .id = 0x123,
+        .mask = 0x7FF,          /* Match all 11 bits */
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
     
-    while (count < (maxLen - 1)) {
-        if (UART_ReceiveByte(LPUART1, &ch) == UART_STATUS_SUCCESS) {
-            if (ch == '\n' || ch == '\r') {
-                break;
+    /* Prepare TX message */
+    txMsg.id = 0x123;
+    txMsg.idType = CAN_ID_STD;
+    txMsg.frameType = CAN_FRAME_DATA;
+    txMsg.dataLength = 8;
+    txMsg.data[0] = 0x01;
+    txMsg.data[1] = 0x02;
+    txMsg.data[2] = 0x03;
+    txMsg.data[3] = 0x04;
+    txMsg.data[4] = 0x05;
+    txMsg.data[5] = 0x06;
+    txMsg.data[6] = 0x07;
+    txMsg.data[7] = 0x08;
+    
+    /* Send message */
+    status = CAN_SendBlocking(0, 8, &txMsg, 100);
+    if (status == STATUS_SUCCESS) {
+        printf("Message sent successfully!\n");
+    }
+    
+    /* Receive message (polling) */
+    while (1) {
+        status = CAN_Receive(0, 16, &rxMsg);
+        if (status == STATUS_SUCCESS) {
+        	printf("Received message ID: 0x%lX, Data: ", rxMsg.id);
+            for (uint8_t i = 0; i < rxMsg.dataLength; i++) {
+                printf("%02X ", rxMsg.data[i]);
             }
-            buffer[count++] = ch;
-        }
-    }
-    
-    buffer[count] = '\0';  /* Null terminate */
-    return count;
-}
-
-/**
- * @brief Complete receive example
- */
-void Example4_ReceiveDemo(void)
-{
-    printf("\n=== Receive Example ===\n");
-    UART_Printf("Type something and press Enter:\r\n");
-
-    char inputBuffer[64];
-    uint32_t len = Example4_ReceiveLine(inputBuffer, sizeof(inputBuffer));
-
-    UART_Printf("You typed: %s (length=%d)\r\n", inputBuffer, len);
-}
-
-/*******************************************************************************
- * Example 5: Echo Application
- ******************************************************************************/
-
-/**
- * @brief Simple echo - receive and send back
- */
-void Example5_SimpleEcho(void)
-{
-    printf("\n=== Echo Example ===\n");
-    UART_Printf("Echo mode - type characters (ESC to exit)\r\n");
-    
-    uint8_t ch;
-    bool running = true;
-    
-    while (running) {
-        if (UART_IsRxReady(LPUART1)) {
-            if (UART_ReceiveByte(LPUART1, &ch) == UART_STATUS_SUCCESS) {
-                /* Check for ESC key */
-                if (ch == 0x1B) {
-                    running = false;
-                    UART_Printf("\r\nEcho mode exited\r\n");
-                } else {
-                    /* Echo back */
-                    UART_SendByte(LPUART1, ch);
-                }
-            }
+            printf("\n");
+            break;
         }
     }
 }
 
 /*******************************************************************************
- * Example 6: Command Line Interface
+ * Example 2: CAN with Interrupt Callbacks
  ******************************************************************************/
 
-/**
- * @brief Process received command
- */
-void Example6_ProcessCommand(const char *cmd)
+void RxCallback(uint8_t instance, uint8_t mbIndex, void *userData)
 {
-    if (strcmp(cmd, "help") == 0) {
-        UART_Printf("Available commands:\r\n");
-        UART_Printf("  help     - Show this help\r\n");
-        UART_Printf("  status   - Show system status\r\n");
-        UART_Printf("  reset    - Reset the system\r\n");
-        UART_Printf("  led on   - Turn on LED\r\n");
-        UART_Printf("  led off  - Turn off LED\r\n");
-        UART_Printf("  version  - Show firmware version\r\n");
-
-    } else if (strcmp(cmd, "status") == 0) {
-        UART_Printf("System Status:\r\n");
-        UART_Printf("  CPU: S32K144 @ 80MHz\r\n");
-        UART_Printf("  UART: 115200 baud\r\n");
-        UART_Printf("  Status: OK\r\n");
-
-    } else if (strcmp(cmd, "reset") == 0) {
-        UART_Printf("Resetting system...\r\n");
-        /* Perform system reset */
-
-    } else if (strcmp(cmd, "led on") == 0) {
-        UART_Printf("LED turned ON\r\n");
-        /* GPIO_WritePin(PORTD, 15, 1); */
-
-    } else if (strcmp(cmd, "led off") == 0) {
-        UART_Printf("LED turned OFF\r\n");
-        /* GPIO_WritePin(PORTD, 15, 0); */
-
-    } else if (strcmp(cmd, "version") == 0) {
-        UART_Printf("Firmware Version: 1.0.0\r\n");
-        UART_Printf("Build Date: %s %s\r\n", __DATE__, __TIME__);
-
-    } else {
-        UART_Printf("Unknown command: %s\r\n", cmd);
-        UART_Printf("Type 'help' for available commands\r\n");
-    }
-}
-
-/**
- * @brief Command line interface task
- */
-void Example6_CLI_Task(void)
-{
-    static uint32_t cmdIndex = 0;
-    uint8_t ch;
-    
-    if (UART_IsRxReady(LPUART1)) {
-        UART_ReceiveByte(LPUART1, &ch);
-
-        if (ch == '\r' || ch == '\n') {
-            /* Process command */
-            if (cmdIndex > 0) {
-                cmdBuffer[cmdIndex] = '\0';
-                UART_Printf("\r\n");
-
-                Example6_ProcessCommand(cmdBuffer);
-
-                cmdIndex = 0;
-            }
-            UART_Printf("\r\n> ");  /* Prompt */
-
-        } else if (ch == 0x08 || ch == 0x7F) {  /* Backspace */
-            if (cmdIndex > 0) {
-                cmdIndex--;
-                UART_Printf("\b \b");  /* Erase character */
-            }
-
-        } else if (cmdIndex < (CMD_BUFFER_SIZE - 1)) {
-            cmdBuffer[cmdIndex++] = ch;
-            UART_SendByte(LPUART1, ch);  /* Echo */
-        }
-    }
-}
-
-/**
- * @brief Complete CLI example
- */
-void Example6_CLI_Demo(void)
-{
-    printf("\n=== Command Line Interface ===\n");
-    UART_Printf("\r\nWelcome to S32K144 CLI!\r\n");
-    UART_Printf("Type 'help' for available commands\r\n");
-    UART_Printf("> ");
-    
-    /* Run for a limited time (or indefinitely in real application) */
-    for (int i = 0; i < 1000; i++) {
-        Example6_CLI_Task();
+    /* Read message in callback */
+    if (CAN_Receive(instance, mbIndex, &g_lastRxMessage) == STATUS_SUCCESS) {
+        g_rxMessageReceived = true;
         
-        /* Small delay */
-        for (volatile uint32_t d = 0; d < 10000; d++);
+        /* Toggle LED when a message is received */
+        static bool ledState = false;
+        if (ledState) {
+            GPIO_SetPin(LED_PORT, LED_PIN);
+        } else {
+            GPIO_ClearPin(LED_PORT, LED_PIN);
+        }
+        ledState = !ledState;
+    }
+}
+
+void TxCallback(uint8_t instance, uint8_t mbIndex, void *userData)
+{
+    printf("Message transmitted successfully from MB%d\n", mbIndex);
+}
+
+void ErrorCallback(uint8_t instance, uint32_t errorFlags, void *userData)
+{
+    printf("CAN Error detected: 0x%08lX\n", errorFlags);
+    
+    if (errorFlags & CAN_ESR1_BOFFINT_MASK) {
+        printf("  - Bus Off Error\n");
+    }
+    if (errorFlags & CAN_ESR1_ERRINT_MASK) {
+        printf("  - Error Interrupt\n");
+    }
+    if (errorFlags & CAN_ESR1_TWRNINT_MASK) {
+        printf("  - TX Warning\n");
+    }
+    if (errorFlags & CAN_ESR1_RWRNINT_MASK) {
+        printf("  - RX Warning\n");
+    }
+}
+
+void Example2_InterruptMode(void)
+{
+    status_t status;
+    can_message_t txMsg;
+    
+    /* Initialize CAN */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
+    
+    status = CAN_Init(&config);
+    if (status != STATUS_SUCCESS) {
+        return;
+    }
+    
+    /* Configure RX filter */
+    can_rx_filter_t rxFilter = {
+        .id = CAN_ID_SENSOR_DATA,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
+    
+    /* Install callbacks */
+    CAN_InstallRxCallback(0, 16, RxCallback, NULL);
+    CAN_InstallTxCallback(0, 8, TxCallback, NULL);
+    CAN_InstallErrorCallback(0, ErrorCallback, NULL);
+    
+    /* Enable NVIC interrupts (needs implementation in startup code) */
+    // NVIC_EnableIRQ(CAN0_ORed_0_15_MB_IRQn);
+    // NVIC_EnableIRQ(CAN0_ORed_16_31_MB_IRQn);
+    
+    /* Send periodic messages */
+    while (1) {
+        /* Prepare message */
+        txMsg.id = CAN_ID_SENSOR_DATA;
+        txMsg.idType = CAN_ID_STD;
+        txMsg.frameType = CAN_FRAME_DATA;
+        txMsg.dataLength = 4;
+        txMsg.data[0] = 0xAA;
+        txMsg.data[1] = 0xBB;
+        txMsg.data[2] = 0xCC;
+        txMsg.data[3] = 0xDD;
+        
+        /* Send message */
+        status = CAN_Send(0, 8, &txMsg);
+        
+        /* Check if message received */
+        if (g_rxMessageReceived) {
+            printf("Received: ID=0x%lX, DLC=%d\n",
+                   g_lastRxMessage.id, 
+                   g_lastRxMessage.dataLength);
+            g_rxMessageReceived = false;
+        }
+        
+        /* Delay 100ms */
+        for (volatile uint32_t i = 0; i < 100000; i++);
     }
 }
 
 /*******************************************************************************
- * Example 7: Data Logging
+ * Example 3: Extended ID (29-bit)
  ******************************************************************************/
 
-/**
- * @brief Log sensor data to UART
- */
-void Example7_LogData(void)
+void Example3_ExtendedID(void)
 {
-    static uint32_t logCounter = 0;
+    status_t status;
+    can_message_t txMsg, rxMsg;
     
-    /* Simulate sensor readings */
-    float temperature = 25.5f + (logCounter % 10) * 0.1f;
-    float humidity = 60.0f + (logCounter % 20) * 0.5f;
-    uint16_t pressure = 1013 + (logCounter % 5);
+    /* Initialize CAN */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
     
-    /* Create CSV format log */
-    UART_Printf("%lu,%.2f,%.2f,%u\r\n",
-                logCounter, temperature, humidity, pressure);
+    CAN_Init(&config);
     
-    logCounter++;
+    /* Configure RX filter for Extended ID */
+    can_rx_filter_t rxFilter = {
+        .id = 0x12345678,           /* 29-bit Extended ID */
+        .mask = 0x1FFFFFFF,         /* Match all 29 bits */
+        .idType = CAN_ID_EXT
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
+    
+    /* Send Extended ID message */
+    txMsg.id = 0x12345678;
+    txMsg.idType = CAN_ID_EXT;
+    txMsg.frameType = CAN_FRAME_DATA;
+    txMsg.dataLength = 8;
+    txMsg.data[0] = 0x11;
+    txMsg.data[1] = 0x22;
+    txMsg.data[2] = 0x33;
+    txMsg.data[3] = 0x44;
+    txMsg.data[4] = 0x55;
+    txMsg.data[5] = 0x66;
+    txMsg.data[6] = 0x77;
+    txMsg.data[7] = 0x88;
+    
+    status = CAN_SendBlocking(0, 8, &txMsg, 100);
+    if (status == STATUS_SUCCESS) {
+        printf("Extended ID message sent!\n");
+    }
+    
+    /* Receive Extended ID message */
+    status = CAN_ReceiveBlocking(0, 16, &rxMsg, 1000);
+    if (status == STATUS_SUCCESS) {
+        printf("Received Extended ID: 0x%08lX\n", rxMsg.id);
+    }
 }
 
-/**
- * @brief Complete data logging example
- */
-void Example7_DataLogging(void)
+/*******************************************************************************
+ * Example 4: Loopback Mode (Self-test)
+ ******************************************************************************/
+
+void Example4_LoopbackMode(void)
 {
-    printf("\n=== Data Logging Example ===\n");
+    status_t status;
+    can_message_t txMsg, rxMsg;
     
-    /* Send CSV header */
-    UART_Printf("Counter,Temperature(C),Humidity(%%),Pressure(hPa)\r\n");
+    /* Initialize CAN in Loopback mode */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_LOOPBACK,          /* Loopback mode */
+        .enableSelfReception = true,        /* Enable self-reception */
+        .useRxFifo = false
+    };
     
-    /* Log 10 samples */
-    for (int i = 0; i < 10; i++) {
-        Example7_LogData();
+    status = CAN_Init(&config);
+    if (status != STATUS_SUCCESS) {
+        printf("Loopback Init failed!\n");
+        return;
+    }
+    
+    /* Configure RX filter */
+    can_rx_filter_t rxFilter = {
+        .id = 0x555,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
+    
+    /* Send message */
+    txMsg.id = 0x555;
+    txMsg.idType = CAN_ID_STD;
+    txMsg.frameType = CAN_FRAME_DATA;
+    txMsg.dataLength = 4;
+    txMsg.data[0] = 0xDE;
+    txMsg.data[1] = 0xAD;
+    txMsg.data[2] = 0xBE;
+    txMsg.data[3] = 0xEF;
+    
+    printf("Sending loopback message...\n");
+    status = CAN_SendBlocking(0, 8, &txMsg, 100);
+    
+    /* In loopback mode, message will be received immediately */
+    status = CAN_ReceiveBlocking(0, 16, &rxMsg, 1000);
+    if (status == STATUS_SUCCESS) {
+        printf("Loopback test PASSED!\n");
+        printf("Received ID: 0x%lX, Data: ", rxMsg.id);
+        for (uint8_t i = 0; i < rxMsg.dataLength; i++) {
+            printf("%02X ", rxMsg.data[i]);
+        }
+        printf("\n");
+    } else {
+        printf("Loopback test FAILED!\n");
+    }
+}
+
+/*******************************************************************************
+ * Example 5: Multiple Message Buffers
+ ******************************************************************************/
+
+void Example5_MultipleMBs(void)
+{
+    status_t status;
+    can_message_t txMsg1, txMsg2, txMsg3;
+    can_message_t rxMsg;
+    
+    /* Initialize CAN */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
+    
+    CAN_Init(&config);
+    
+    /* Configure multiple RX filters */
+    can_rx_filter_t rxFilter1 = {
+        .id = CAN_ID_SENSOR_DATA,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter1);
+    
+    can_rx_filter_t rxFilter2 = {
+        .id = CAN_ID_CONTROL_CMD,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 17, &rxFilter2);
+    
+    can_rx_filter_t rxFilter3 = {
+        .id = CAN_ID_STATUS,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 18, &rxFilter3);
+    
+    /* Send different messages using different TX MBs */
+    
+    /* Message 1: Sensor data */
+    txMsg1.id = CAN_ID_SENSOR_DATA;
+    txMsg1.idType = CAN_ID_STD;
+    txMsg1.frameType = CAN_FRAME_DATA;
+    txMsg1.dataLength = 4;
+    txMsg1.data[0] = 0x12;  /* Temperature */
+    txMsg1.data[1] = 0x34;
+    txMsg1.data[2] = 0x56;  /* Humidity */
+    txMsg1.data[3] = 0x78;
+    CAN_Send(0, 8, &txMsg1);
+    
+    /* Message 2: Control command */
+    txMsg2.id = CAN_ID_CONTROL_CMD;
+    txMsg2.idType = CAN_ID_STD;
+    txMsg2.frameType = CAN_FRAME_DATA;
+    txMsg2.dataLength = 2;
+    txMsg2.data[0] = 0x01;  /* Command: Start */
+    txMsg2.data[1] = 0xFF;  /* Parameter */
+    CAN_Send(0, 9, &txMsg2);
+    
+    /* Message 3: Status */
+    txMsg3.id = CAN_ID_STATUS;
+    txMsg3.idType = CAN_ID_STD;
+    txMsg3.frameType = CAN_FRAME_DATA;
+    txMsg3.dataLength = 1;
+    txMsg3.data[0] = 0xAA;  /* Status: OK */
+    CAN_Send(0, 10, &txMsg3);
+    
+    /* Receive from multiple MBs */
+    while (1) {
+        /* Check MB16 (Sensor data) */
+        if (CAN_Receive(0, 16, &rxMsg) == STATUS_SUCCESS) {
+            printf("Sensor Data: Temp=%02X%02X, Hum=%02X%02X\n",
+                   rxMsg.data[0], rxMsg.data[1], 
+                   rxMsg.data[2], rxMsg.data[3]);
+        }
+        
+        /* Check MB17 (Control command) */
+        if (CAN_Receive(0, 17, &rxMsg) == STATUS_SUCCESS) {
+            printf("Control Command: CMD=%02X, Param=%02X\n",
+                   rxMsg.data[0], rxMsg.data[1]);
+        }
+        
+        /* Check MB18 (Status) */
+        if (CAN_Receive(0, 18, &rxMsg) == STATUS_SUCCESS) {
+            printf("Status: %02X\n", rxMsg.data[0]);
+        }
+    }
+}
+
+/*******************************************************************************
+ * Example 6: Error Monitoring
+ ******************************************************************************/
+
+void Example6_ErrorMonitoring(void)
+{
+    status_t status;
+    can_error_state_t errorState;
+    uint8_t txErrors, rxErrors;
+    
+    /* Initialize CAN */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
+    
+    CAN_Init(&config);
+    
+    /* Monitoring loop */
+    while (1) {
+        /* Get error state */
+        status = CAN_GetErrorState(0, &errorState);
+        if (status == STATUS_SUCCESS) {
+            switch (errorState) {
+                case CAN_ERROR_ACTIVE:
+                    printf("CAN Status: Error Active (Normal)\n");
+                    break;
+                case CAN_ERROR_PASSIVE:
+                    printf("CAN Status: Error Passive (Warning!)\n");
+                    break;
+                case CAN_ERROR_BUS_OFF:
+                    printf("CAN Status: Bus Off (Critical!)\n");
+                    /* Need to reinitialize CAN */
+                    CAN_Deinit(0);
+                    CAN_Init(&config);
+                    break;
+            }
+        }
+        
+        /* Get error counters */
+        status = CAN_GetErrorCounters(0, &txErrors, &rxErrors);
+        if (status == STATUS_SUCCESS) {
+            printf("Error Counters - TX: %d, RX: %d\n", txErrors, rxErrors);
+            
+            if (txErrors > 96 || rxErrors > 96) {
+                printf("Warning: Error count approaching passive threshold!\n");
+            }
+        }
         
         /* Delay 1 second */
-        for (volatile uint32_t d = 0; d < 1000000; d++);
+        for (volatile uint32_t i = 0; i < 1000000; i++);
     }
-
-    UART_Printf("Logging complete\r\n");
 }
 
 /*******************************************************************************
- * Example 8: Error Handling
+ * Example 7: Remote Frame
  ******************************************************************************/
 
-/**
- * @brief Demonstrate error detection and handling
- */
-void Example8_ErrorHandling(void)
+void Example7_RemoteFrame(void)
 {
-    printf("\n=== Error Handling Example ===\n");
+    status_t status;
+    can_message_t remoteRequest, dataResponse;
     
-    /* Check for various errors */
-    UART_Status_t error = UART_GetError(LPUART1);
+    /* Initialize CAN */
+    can_config_t config = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
     
-    switch (error) {
-        case UART_STATUS_SUCCESS:
-            UART_Printf("No errors detected\r\n");
-            break;
-
-        case UART_STATUS_PARITY_ERROR:
-            UART_Printf("Parity error detected!\r\n");
-            break;
-
-        case UART_STATUS_FRAME_ERROR:
-            UART_Printf("Frame error - check baud rate!\r\n");
-            break;
-
-        case UART_STATUS_NOISE_ERROR:
-            UART_Printf("Noise detected on line\r\n");
-            break;
-
-        case UART_STATUS_OVERRUN_ERROR:
-            UART_Printf("Data overrun - processing too slow!\r\n");
-            break;
-
-        default:
-            UART_Printf("Unknown error\r\n");
-            break;
+    CAN_Init(&config);
+    
+    /* Node A: Send Remote Frame request */
+    remoteRequest.id = 0x456;
+    remoteRequest.idType = CAN_ID_STD;
+    remoteRequest.frameType = CAN_FRAME_REMOTE;  /* Remote frame */
+    remoteRequest.dataLength = 8;                /* DLC of requested data */
+    
+    printf("Sending Remote Frame request...\n");
+    CAN_Send(0, 8, &remoteRequest);
+    
+    /* Node B: Receive Remote Frame and respond with Data Frame */
+    can_rx_filter_t rxFilter = {
+        .id = 0x456,
+        .mask = 0x7FF,
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
+    
+    /* Wait for remote request */
+    status = CAN_ReceiveBlocking(0, 16, &dataResponse, 1000);
+    if (status == STATUS_SUCCESS && 
+        dataResponse.frameType == CAN_FRAME_REMOTE) {
+        
+        printf("Remote Frame received, sending data response...\n");
+        
+        /* Send data response */
+        dataResponse.frameType = CAN_FRAME_DATA;
+        dataResponse.data[0] = 0x11;
+        dataResponse.data[1] = 0x22;
+        dataResponse.data[2] = 0x33;
+        dataResponse.data[3] = 0x44;
+        dataResponse.data[4] = 0x55;
+        dataResponse.data[5] = 0x66;
+        dataResponse.data[6] = 0x77;
+        dataResponse.data[7] = 0x88;
+        
+        CAN_Send(0, 9, &dataResponse);
     }
-    
-    /* Get status flags */
-    uint32_t status = UART_GetStatusFlags(LPUART1);
-    UART_Printf("Status register: 0x%08X\r\n", status);
-    
-    /* Clear error flags */
-    uint32_t errorFlags = LPUART_STAT_PF_MASK |
-                          LPUART_STAT_FE_MASK |
-                          LPUART_STAT_NF_MASK |
-                          LPUART_STAT_OR_MASK;
-    UART_ClearStatusFlags(LPUART1, errorFlags);
 }
 
 /*******************************************************************************
- * Example 9: Loopback Test
+ * Example 8: CAN Gateway (2 CAN interfaces)
  ******************************************************************************/
 
-/**
- * @brief Test UART with loopback (connect TX to RX)
- */
-void Example9_LoopbackTest(void)
+void Example8_CANGateway(void)
 {
-    printf("\n=== Loopback Test ===\n");
-    UART_Printf("Connect TX to RX for this test\r\n");
+    status_t status;
+    can_message_t msg;
     
-    uint8_t testData[] = {0x55, 0xAA, 0x12, 0x34, 0x56, 0x78};
-    uint8_t rxData[6] = {0};
-    bool testPassed = true;
+    /* Initialize CAN0 (500 Kbps) */
+    can_config_t config0 = {
+        .instance = 0,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 500000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
+    CAN_Init(&config0);
     
-    /* Send test data */
-    for (int i = 0; i < 6; i++) {
-        UART_SendByte(LPUART1, testData[i]);
-
-        /* Small delay */
-        for (volatile uint32_t d = 0; d < 1000; d++);
-
-        /* Receive */
-        if (UART_ReceiveByte(LPUART1, &rxData[i]) != UART_STATUS_SUCCESS) {
-            testPassed = false;
-            break;
+    /* Initialize CAN1 (250 Kbps) */
+    can_config_t config1 = {
+        .instance = 1,
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,
+        .baudRate = 250000,
+        .mode = CAN_MODE_NORMAL,
+        .enableSelfReception = false,
+        .useRxFifo = false
+    };
+    CAN_Init(&config1);
+    
+    /* Configure RX filters */
+    can_rx_filter_t rxFilter = {
+        .id = 0x000,
+        .mask = 0x000,      /* Accept all messages */
+        .idType = CAN_ID_STD
+    };
+    CAN_ConfigRxFilter(0, 16, &rxFilter);
+    CAN_ConfigRxFilter(1, 16, &rxFilter);
+    
+    printf("CAN Gateway started...\n");
+    
+    /* Gateway loop: Forward messages between CAN0 and CAN1 */
+    while (1) {
+        /* CAN0 -> CAN1 */
+        if (CAN_Receive(0, 16, &msg) == STATUS_SUCCESS) {
+            printf("CAN0->CAN1: ID=0x%lX\n", msg.id);
+            CAN_Send(1, 8, &msg);
+        }
+        
+        /* CAN1 -> CAN0 */
+        if (CAN_Receive(1, 16, &msg) == STATUS_SUCCESS) {
+            printf("CAN1->CAN0: ID=0x%lX\n", msg.id);
+            CAN_Send(0, 8, &msg);
         }
     }
-    
-    /* Verify */
-    if (testPassed) {
-        for (int i = 0; i < 6; i++) {
-            if (testData[i] != rxData[i]) {
-                testPassed = false;
-                break;
-            }
-        }
-    }
-    
-    if (testPassed) {
-        UART_Printf("Loopback test PASSED\r\n");
-    } else {
-        UART_Printf("Loopback test FAILED\r\n");
-    }
-    
-    /* Print results */
-    UART_Printf("Sent:     ");
-    for (int i = 0; i < 6; i++) {
-        UART_Printf("0x%02X ", testData[i]);
-    }
-    UART_Printf("\r\nReceived: ");
-    for (int i = 0; i < 6; i++) {
-        UART_Printf("0x%02X ", rxData[i]);
-    }
-    UART_Printf("\r\n");
 }
 
 /*******************************************************************************
- * Main Function
+ * Main function to run examples
  ******************************************************************************/
 
-/**
- * @brief Main function - runs all examples
- */
 int main(void)
 {
-    /* Example 1: Initialize UART */
-    Example1_BasicInit();
+    /* Initialize system */
+    // SystemInit();
     
-    /* Example 2: Send string */
-    Example2_Complete();
+    /* Configure CAN pins */
+    // PTE4 = CAN0_RX, PTE5 = CAN0_TX
+    // PORT_ConfigurePin(PORTE, 4, PORT_MUX_ALT5);
+    // PORT_ConfigurePin(PORTE, 5, PORT_MUX_ALT5);
     
-    /* Example 3: Printf */
-    Example3_PrintfDemo();
+    /* Run example */
+    // Example1_BasicSendReceive();
+    // Example2_InterruptMode();
+    // Example3_ExtendedID();
+    // Example4_LoopbackMode();
+    // Example5_MultipleMBs();
+    // Example6_ErrorMonitoring();
+    // Example7_RemoteFrame();
+    // Example8_CANGateway();
     
-    /* Example 4: Receive data */
-    Example4_ReceiveDemo();
+    while (1) {
+        /* Main loop */
+    }
     
-    /* Example 5: Echo */
-    Example5_SimpleEcho();
-    
-    /* Example 6: CLI */
-    Example6_CLI_Demo();
-    
-    /* Example 7: Data logging */
-    Example7_DataLogging();
-    
-    /* Example 8: Error handling */
-    Example8_ErrorHandling();
-    
-    /* Example 9: Loopback test */
-    Example9_LoopbackTest();
-    
-    UART_Printf("\n=== All UART examples completed! ===\n");
+    return 0;
 }

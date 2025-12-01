@@ -122,6 +122,43 @@ void GPIO_WritePin(gpio_port_t port, uint8_t pin, gpio_level_t value);
  */
 gpio_level_t GPIO_ReadPin(gpio_port_t port, uint8_t pin);
 
+
+
+/**
+ * @brief Set GPIO pin output to high
+ * @details Drives the specified GPIO pin to a logic high level (1).
+ *
+ * @param[in] port GPIO port (GPIO_PORT_A to GPIO_PORT_E)
+ * @param[in] pin Pin number (0-31)
+ *
+ * @return None
+ *
+ * @note Pin must be configured as output before calling this function
+ *
+ * @par Example:
+ * @code
+ * GPIO_SetPin(GPIO_PORT_C, 0);
+ * @endcode
+ */
+void GPIO_SetPin(gpio_port_t port, uint8_t pin);
+
+/**
+ * @brief Clear GPIO pin output to low
+ * @details Drives the specified GPIO pin to a logic low level (0).
+ *
+ * @param[in] port GPIO port (GPIO_PORT_A to GPIO_PORT_E)
+ * @param[in] pin Pin number (0-31)
+ *
+ * @return None
+ *
+ * @note Pin must be configured as output before calling this function
+ *
+ * @par Example:
+ * @code
+ * GPIO_ClearPin(GPIO_PORT_C, 0);
+ * @endcode
+ */
+void GPIO_ClearPin(gpio_port_t port, uint8_t pin);
 /**
  * @brief Toggle GPIO pin
  * @details Inverts the output value of the specified GPIO pin

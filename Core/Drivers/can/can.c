@@ -12,9 +12,11 @@
  * Includes
  ******************************************************************************/
 #include "can.h"
+#include "can_mb_access.h"
+#include "../device_compat.h"
+#include "pcc_reg.h"
 #include <stddef.h>
 #include <string.h>
-
 /*******************************************************************************
  * Private Definitions
  ******************************************************************************/
@@ -63,7 +65,7 @@ static void *s_errorUserData[CAN_INSTANCE_COUNT];
 static status_t CAN_EnterFreezeMode(CAN_Type *base);
 static status_t CAN_ExitFreezeMode(CAN_Type *base);
 static status_t CAN_SoftReset(CAN_Type *base);
-static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource);
+static void CAN_EnableClock(uint8_t instance);
 static void CAN_InitMessageBuffers(CAN_Type *base);
 static uint32_t CAN_GetClockFrequency(can_clk_src_t clockSource);
 
@@ -93,7 +95,7 @@ status_t CAN_Init(const can_config_t *config)
     base = s_canBases[config->instance];
     
     /* Enable CAN clock */
-    CAN_EnableClock(config->instance, config->clockSource);
+    CAN_EnableClock(config->instance);
     
     /* Get CAN clock frequency */
     canClockHz = CAN_GetClockFrequency(config->clockSource);
@@ -174,7 +176,6 @@ status_t CAN_Init(const can_config_t *config)
 status_t CAN_Deinit(uint8_t instance)
 {
     CAN_Type *base;
-    volatile uint32_t *pccReg;
     
     /* Validate parameter */
     if (instance >= CAN_INSTANCE_COUNT) {
@@ -188,15 +189,16 @@ status_t CAN_Deinit(uint8_t instance)
     
     /* Disable clock */
     if (instance == 0U) {
-        pccReg = PCC_FlexCAN0;
+    	PCC->PCCn[PCC_FLEXCAN0_INDEX] &=~ PCC_PCCn_CGC_MASK;
     } else if (instance == 1U) {
-        pccReg = PCC_FlexCAN1;
+    	PCC->PCCn[PCC_FLEXCAN1_INDEX] &=~ PCC_PCCn_CGC_MASK;
     } else {
-        pccReg = PCC_FlexCAN2;
+    	PCC->PCCn[PCC_FLEXCAN2_INDEX] &=~ PCC_PCCn_CGC_MASK;
     }
     
-    *pccReg &= ~PCC_CGC_MASK;
-    
+
+
+
     /* Clear initialized flag */
     s_canInitialized[instance] = false;
     
@@ -209,7 +211,6 @@ status_t CAN_Deinit(uint8_t instance)
 status_t CAN_Send(uint8_t instance, uint8_t mbIndex, const can_message_t *message)
 {
     CAN_Type *base;
-    CAN_MB_Type *mb;
     uint32_t cs;
     
     /* Validate parameters */
@@ -221,7 +222,7 @@ status_t CAN_Send(uint8_t instance, uint8_t mbIndex, const can_message_t *messag
         return STATUS_NOT_INITIALIZED;
     }
     
-    if (mbIndex < CAN_TX_MB_START || 
+    if (mbIndex < CAN_TX_MB_START ||
         mbIndex >= (CAN_TX_MB_START + CAN_TX_MB_COUNT)) {
         return STATUS_INVALID_PARAM;
     }
@@ -231,40 +232,37 @@ status_t CAN_Send(uint8_t instance, uint8_t mbIndex, const can_message_t *messag
     }
     
     base = s_canBases[instance];
-    mb = &base->MB[mbIndex];
     
     /* Check if MB is busy */
-    cs = mb->CS;
-    if (((cs & CAN_MB_CS_CODE_MASK) >> CAN_MB_CS_CODE_SHIFT) != CAN_MB_CS_CODE_TX_INACTIVE) {
+    cs = CAN_ReadMbCs(base, mbIndex);
+    if (((cs & CAN_CS_CODE_MASK) >> CAN_CS_CODE_SHIFT) != CAN_CS_CODE_TX_INACTIVE) {
         return STATUS_BUSY;
     }
     
     /* Configure ID */
     if (message->idType == CAN_ID_STD) {
-        mb->ID = (message->id << CAN_MB_ID_STD_SHIFT) & CAN_MB_ID_STD_MASK;
+        CAN_WriteMbId(base, mbIndex, (message->id << CAN_ID_STD_SHIFT) & CAN_ID_STD_MASK);
     } else {
-        mb->ID = (message->id << CAN_MB_ID_EXT_SHIFT) & CAN_MB_ID_EXT_MASK;
+        CAN_WriteMbId(base, mbIndex, (message->id << CAN_ID_EXT_SHIFT) & CAN_ID_EXT_MASK);
     }
     
     /* Copy data */
-    for (uint8_t i = 0; i < message->dataLength; i++) {
-        mb->DATA[i] = message->data[i];
-    }
+    CAN_CopyDataToMb(base, mbIndex, message->data, message->dataLength);
     
     /* Configure CS and trigger transmission */
-    cs = (CAN_MB_CS_CODE_TX_ONCE << CAN_MB_CS_CODE_SHIFT) |
-         ((uint32_t)message->dataLength << CAN_MB_CS_DLC_SHIFT);
+    cs = (CAN_CS_CODE_TX_ONCE << CAN_CS_CODE_SHIFT) |
+         ((uint32_t)message->dataLength << CAN_CS_DLC_SHIFT);
     
     if (message->idType == CAN_ID_EXT) {
-        cs |= CAN_MB_CS_IDE_MASK;
-        cs |= CAN_MB_CS_SRR_MASK;
+        cs |= CAN_CS_IDE_MASK;
+        cs |= CAN_CS_SRR_MASK;
     }
     
     if (message->frameType == CAN_FRAME_REMOTE) {
-        cs |= CAN_MB_CS_RTR_MASK;
+        cs |= CAN_CS_RTR_MASK;
     }
     
-    mb->CS = cs;
+    CAN_WriteMbCs(base, mbIndex, cs);
     
     return STATUS_SUCCESS;
 }
@@ -308,7 +306,6 @@ status_t CAN_SendBlocking(uint8_t instance, uint8_t mbIndex,
 status_t CAN_Receive(uint8_t instance, uint8_t mbIndex, can_message_t *message)
 {
     CAN_Type *base;
-    CAN_MB_Type *mb;
     uint32_t cs;
     uint32_t id;
     uint32_t mbMask;
@@ -334,30 +331,26 @@ status_t CAN_Receive(uint8_t instance, uint8_t mbIndex, can_message_t *message)
         return STATUS_ERROR;
     }
     
-    mb = &base->MB[mbIndex];
-    
     /* Read CS to lock MB */
-    cs = mb->CS;
+    cs = CAN_ReadMbCs(base, mbIndex);
     
     /* Read ID */
-    id = mb->ID;
+    id = CAN_ReadMbId(base, mbIndex);
     
     /* Extract message information */
-    if (cs & CAN_MB_CS_IDE_MASK) {
+    if (cs & CAN_CS_IDE_MASK) {
         message->idType = CAN_ID_EXT;
-        message->id = (id & CAN_MB_ID_EXT_MASK) >> CAN_MB_ID_EXT_SHIFT;
+        message->id = (id & CAN_ID_EXT_MASK) >> CAN_ID_EXT_SHIFT;
     } else {
         message->idType = CAN_ID_STD;
-        message->id = (id & CAN_MB_ID_STD_MASK) >> CAN_MB_ID_STD_SHIFT;
+        message->id = (id & CAN_ID_STD_MASK) >> CAN_ID_STD_SHIFT;
     }
     
-    message->frameType = (cs & CAN_MB_CS_RTR_MASK) ? CAN_FRAME_REMOTE : CAN_FRAME_DATA;
-    message->dataLength = (cs & CAN_MB_CS_DLC_MASK) >> CAN_MB_CS_DLC_SHIFT;
+    message->frameType = (cs & CAN_CS_RTR_MASK) ? CAN_FRAME_REMOTE : CAN_FRAME_DATA;
+    message->dataLength = (cs & CAN_CS_DLC_MASK) >> CAN_CS_DLC_SHIFT;
     
     /* Copy data */
-    for (uint8_t i = 0; i < message->dataLength; i++) {
-        message->data[i] = mb->DATA[i];
-    }
+    CAN_CopyDataFromMb(base, mbIndex, message->data, message->dataLength);
     
     /* Read free running timer to unlock MB */
     (void)base->TIMER;
@@ -408,7 +401,6 @@ status_t CAN_ConfigRxFilter(uint8_t instance, uint8_t mbIndex,
                              const can_rx_filter_t *filter)
 {
     CAN_Type *base;
-    CAN_MB_Type *mb;
     uint32_t cs;
     
     /* Validate parameters */
@@ -425,19 +417,18 @@ status_t CAN_ConfigRxFilter(uint8_t instance, uint8_t mbIndex,
     }
     
     base = s_canBases[instance];
-    mb = &base->MB[mbIndex];
     
     /* Configure MB as RX */
-    cs = (CAN_MB_CS_CODE_RX_EMPTY << CAN_MB_CS_CODE_SHIFT);
+    cs = (CAN_CS_CODE_RX_EMPTY << CAN_CS_CODE_SHIFT);
     
     if (filter->idType == CAN_ID_EXT) {
-        cs |= CAN_MB_CS_IDE_MASK;
-        mb->ID = (filter->id << CAN_MB_ID_EXT_SHIFT) & CAN_MB_ID_EXT_MASK;
+        cs |= CAN_CS_IDE_MASK;
+        CAN_WriteMbId(base, mbIndex, (filter->id << CAN_ID_EXT_SHIFT) & CAN_ID_EXT_MASK);
     } else {
-        mb->ID = (filter->id << CAN_MB_ID_STD_SHIFT) & CAN_MB_ID_STD_MASK;
+        CAN_WriteMbId(base, mbIndex, (filter->id << CAN_ID_STD_SHIFT) & CAN_ID_STD_MASK);
     }
     
-    mb->CS = cs;
+    CAN_WriteMbCs(base, mbIndex, cs);
     
     /* Configure individual mask */
     base->RXIMR[mbIndex] = filter->mask;
@@ -567,7 +558,7 @@ status_t CAN_AbortTransmission(uint8_t instance, uint8_t mbIndex)
     base = s_canBases[instance];
     
     /* Set abort code */
-    base->MB[mbIndex].CS = (CAN_MB_CS_CODE_TX_ABORT << CAN_MB_CS_CODE_SHIFT);
+    CAN_WriteMbCs(base, mbIndex, (CAN_CS_CODE_TX_ABORT << CAN_CS_CODE_SHIFT));
     
     return STATUS_SUCCESS;
 }
@@ -587,11 +578,11 @@ status_t CAN_IsMbBusy(uint8_t instance, uint8_t mbIndex, bool *isBusy)
     }
     
     base = s_canBases[instance];
-    cs = base->MB[mbIndex].CS;
-    code = (cs & CAN_MB_CS_CODE_MASK) >> CAN_MB_CS_CODE_SHIFT;
+    cs = CAN_ReadMbCs(base, mbIndex);
+    code = (cs & CAN_CS_CODE_MASK) >> CAN_CS_CODE_SHIFT;
     
-    *isBusy = (code != CAN_MB_CS_CODE_TX_INACTIVE && 
-               code != CAN_MB_CS_CODE_RX_INACTIVE);
+    *isBusy = (code != CAN_CS_CODE_TX_INACTIVE &&
+               code != CAN_CS_CODE_RX_INACTIVE);
     
     return STATUS_SUCCESS;
 }
@@ -718,24 +709,27 @@ static status_t CAN_SoftReset(CAN_Type *base)
 /**
  * @brief Enable CAN peripheral clock
  */
-static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource)
+static void CAN_EnableClock(uint8_t instance)
 {
-    volatile uint32_t *pccReg;
-    
+//	DEV_ASSERT(instance > 2U);
+
     /* Get PCC register address */
     if (instance == 0U) {
-        pccReg = PCC_FlexCAN0;
+        PCC->PCCn[PCC_FLEXCAN0_INDEX] |= PCC_PCCn_CGC_MASK;
+
+        CAN0->MCR |= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
+        CAN0->CTRL1 &= ~CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator (8 MHz) */
     } else if (instance == 1U) {
-        pccReg = PCC_FlexCAN1;
+    	PCC->PCCn[PCC_FLEXCAN1_INDEX] |= PCC_PCCn_CGC_MASK;
+    	CAN1->MCR |= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
+    	CAN1->CTRL1 &= ~CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator (8 MHz) */
     } else {
-        pccReg = PCC_FlexCAN2;
+    	PCC->PCCn[PCC_FLEXCAN2_INDEX] |= PCC_PCCn_CGC_MASK;
+    	CAN2->MCR |= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
+    	CAN2->CTRL1 &= ~CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator (8 MHz) */
     }
-    
-    /* Disable clock first */
-    *pccReg &= ~PCC_CGC_MASK;
-    
-    /* Select clock source and enable */
-    *pccReg = ((uint32_t)clockSource << PCC_PCS_SHIFT) | PCC_CGC_MASK;
+
+
 }
 
 /**
@@ -745,16 +739,7 @@ static void CAN_InitMessageBuffers(CAN_Type *base)
 {
     /* Set all MBs to inactive */
     for (uint8_t i = 0; i < CAN_MB_COUNT; i++) {
-        base->MB[i].CS = 0U;
-        base->MB[i].ID = 0U;
-        base->MB[i].DATA[0] = 0U;
-        base->MB[i].DATA[1] = 0U;
-        base->MB[i].DATA[2] = 0U;
-        base->MB[i].DATA[3] = 0U;
-        base->MB[i].DATA[4] = 0U;
-        base->MB[i].DATA[5] = 0U;
-        base->MB[i].DATA[6] = 0U;
-        base->MB[i].DATA[7] = 0U;
+        CAN_ClearMb(base, i);
         
         /* Clear individual mask */
         base->RXIMR[i] = 0xFFFFFFFFUL;
@@ -775,13 +760,7 @@ static uint32_t CAN_GetClockFrequency(can_clk_src_t clockSource)
         case CAN_CLK_SRC_SOSCDIV2:
             freq = 8000000U;    /* 8 MHz / 2 = 4 MHz typical */
             break;
-        case CAN_CLK_SRC_SIRCDIV2:
-            freq = 8000000U;    /* 8 MHz / 2 = 4 MHz */
-            break;
-        case CAN_CLK_SRC_FIRCDIV2:
-            freq = 24000000U;   /* 48 MHz / 2 = 24 MHz */
-            break;
-        case CAN_CLK_SRC_SPLLDIV2:
+        case CAN_CLK_SRC_BUSCLOCK:
             freq = 40000000U;   /* 80 MHz / 2 = 40 MHz typical */
             break;
         default:

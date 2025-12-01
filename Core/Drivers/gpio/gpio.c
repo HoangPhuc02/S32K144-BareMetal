@@ -90,6 +90,21 @@ gpio_level_t GPIO_ReadPin(gpio_port_t port, uint8_t pin)
     return (gpio_level_t)((base->PDIR >> pin) & 0x1U);
 }
 
+void GPIO_SetPin(gpio_port_t port, uint8_t pin)
+{
+    GPIO_Type *base = GPIO_GetBase(port);
+
+    base->PSOR = (1U << pin);  /* Set pin */
+
+}
+
+void GPIO_ClearPin(gpio_port_t port, uint8_t pin)
+{
+    GPIO_Type *base = GPIO_GetBase(port);
+
+    base->PCOR = (1U << pin);  /* Clear pin */
+}
+
 void GPIO_TogglePin(gpio_port_t port, uint8_t pin)
 {
     GPIO_Type *base = GPIO_GetBase(port);
