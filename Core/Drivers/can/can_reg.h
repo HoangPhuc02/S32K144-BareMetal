@@ -47,9 +47,7 @@
 #define CAN1_BASE           (0x40025000UL)  /**< CAN1 base address */
 #define CAN2_BASE           (0x4002B000UL)  /**< CAN2 base address */
 
-/** @brief Number of Message Buffers per CAN instance */
-// TODO : thiss iss based on CAN peri there are only 16 buffer in CAN1 and CAN2       
-#define CAN_MB_COUNT        (32U)
+
 
 
 /** FLEXCAN - Size of Registers Arrays */
@@ -65,31 +63,6 @@
 /*******************************************************************************
  * CAN Register Structures
  ******************************************************************************/
-
-/**
- * @brief CAN Message Buffer Structure
- * @details Each Message Buffer occupies 16 bytes consisting of:
- *          - CS (4 bytes): Control and Status word containing CODE, IDE, RTR, DLC, TIME_STAMP
- *          - ID (4 bytes): Message Identifier (Standard 11-bit or Extended 29-bit)
- *          - DATA (8 bytes): Payload data bytes 0-7
- */
-typedef struct {
-    __IO uint32_t CS;       /**< Control and Status register */
-    __IO uint32_t ID;       /**< Message Buffer Identifier register */
-    __IO uint8_t  DATA[8];  /**< Data bytes 0-7 */
-} CAN_MB_Type;
-
-/**
- * @brief CAN RX FIFO Structure
- * @details Structure for RX FIFO output message format.
- *          When RX FIFO is enabled, MBs 0-5 are occupied by FIFO
- */
-typedef struct {
-    __IO uint32_t CS;       /**< Control and Status register */
-    __IO uint32_t ID;       /**< Message Identifier register */
-    __IO uint8_t  DATA[8];  /**< Data bytes 0-7 */
-} CAN_RX_FIFO_Type;
-
 /**
  * @brief CAN Module Register Structure
  * @details Complete register map for CAN module including:
@@ -99,33 +72,6 @@ typedef struct {
  *          - 32 Message Buffers (MB[0]-MB[31])
  *          - Individual RX Mask registers (RXIMR[0]-RXIMR[31])
  */
-// typedef struct {
-//     __IO uint32_t MCR;              /**< Module Configuration Register, offset: 0x00 */
-//     __IO uint32_t CTRL1;            /**< Control 1 Register, offset: 0x04 */
-//     __IO uint32_t TIMER;            /**< Free Running Timer, offset: 0x08 */
-//     uint32_t RESERVED0;             /**< Reserved, offset: 0x0C */
-//     __IO uint32_t RXMGMASK;         /**< RX Mailboxes Global Mask, offset: 0x10 */
-//     __IO uint32_t RX14MASK;         /**< RX Buffer 14 Mask, offset: 0x14 */
-//     __IO uint32_t RX15MASK;         /**< RX Buffer 15 Mask, offset: 0x18 */
-//     __IO uint32_t ECR;              /**< Error Counter Register, offset: 0x1C */
-//     __IO uint32_t ESR1;             /**< Error and Status 1, offset: 0x20 */
-//     uint32_t RESERVED1;             /**< Reserved, offset: 0x24 */
-//     __IO uint32_t IMASK1;           /**< Interrupt Masks 1, offset: 0x28 */
-//     uint32_t RESERVED2;             /**< Reserved, offset: 0x2C */
-//     __IO uint32_t IFLAG1;           /**< Interrupt Flags 1, offset: 0x30 */
-//     __IO uint32_t CTRL2;            /**< Control 2 Register, offset: 0x34 */
-//     __I  uint32_t ESR2;             /**< Error and Status 2, offset: 0x38 */
-//     uint32_t RESERVED3[2];          /**< Reserved, offset: 0x3C-0x40 */
-//     __I  uint32_t CRCR;             /**< CRC Register, offset: 0x44 */
-//     __IO uint32_t RXFGMASK;         /**< RX FIFO Global Mask, offset: 0x48 */
-//     __I  uint32_t RXFIR;            /**< RX FIFO Information, offset: 0x4C */
-//     uint32_t RESERVED4[12];         /**< Reserved, offset: 0x50-0x7C */
-//     CAN_MB_Type MB[CAN_MB_COUNT];   /**< Message Buffers 0-31, offset: 0x80 */
-//     uint32_t RESERVED5[256];        /**< Reserved, offset: 0x280-0x67C */
-//     __IO uint32_t RXIMR[CAN_MB_COUNT];  /**< RX Individual Mask Registers, offset: 0x880 */
-// } CAN_Type;
-
-
 typedef struct {
   __IO uint32_t MCR;                               /**< Module Configuration Register, offset: 0x0 */
   __IO uint32_t CTRL1;                             /**< Control 1 Register, offset: 0x4 */
