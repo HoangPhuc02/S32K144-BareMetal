@@ -50,10 +50,10 @@
 
 /** @brief Status return type */
 typedef enum {
-    STATUS_SUCCESS = 0x00U,         /**< Operation successful */
-    STATUS_ERROR = 0x01U,           /**< General error */
-    STATUS_INVALID_PARAM = 0x04U    /**< Invalid parameter */
-} status_t;
+    NVIC_STATUS_SUCCESS = 0x00U,         /**< Operation successful */
+    NVIC_STATUS_ERROR = 0x01U,           /**< General error */
+    NVIC_STATUS_INVALID_PARAM = 0x04U    /**< Invalid parameter */
+} nvic_status_t;
 
 /** @brief Maximum priority value (lowest priority) */
 #define NVIC_PRIORITY_MIN       (15U)
@@ -71,9 +71,9 @@ typedef enum {
  * 
  * @param[in] IRQn Interrupt number (từ IRQn_Type enum)
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Interrupt enabled
- *         - STATUS_INVALID_PARAM: Invalid IRQ number
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Interrupt enabled
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
  * @note Phải set priority trước khi enable interrupt
  * @warning Interrupt sẽ trigger ngay nếu pending flag đã set
@@ -83,7 +83,7 @@ typedef enum {
  * NVIC_EnableIRQ(LPIT0_Ch0_IRQn);
  * @endcode
  */
-status_t NVIC_EnableIRQ(IRQn_Type IRQn);
+nvic_status_t NVIC_EnableIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Disable interrupt
@@ -91,9 +91,9 @@ status_t NVIC_EnableIRQ(IRQn_Type IRQn);
  * 
  * @param[in] IRQn Interrupt number
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Interrupt disabled
- *         - STATUS_INVALID_PARAM: Invalid IRQ number
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Interrupt disabled
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
  * @note Interrupt đang active sẽ được hoàn thành trước khi disable
  * 
@@ -102,7 +102,7 @@ status_t NVIC_EnableIRQ(IRQn_Type IRQn);
  * NVIC_DisableIRQ(LPIT0_Ch0_IRQn);
  * @endcode
  */
-status_t NVIC_DisableIRQ(IRQn_Type IRQn);
+nvic_status_t NVIC_DisableIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Get interrupt enable status
@@ -111,11 +111,11 @@ status_t NVIC_DisableIRQ(IRQn_Type IRQn);
  * @param[in] IRQn Interrupt number
  * @param[out] isEnabled Pointer to store enable status
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Status retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Status retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
+nvic_status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
 
 /**
  * @brief Set interrupt pending
@@ -123,9 +123,9 @@ status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
  * 
  * @param[in] IRQn Interrupt number
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Pending set
- *         - STATUS_INVALID_PARAM: Invalid IRQ number
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Pending set
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
  * @note Nếu interrupt enabled, ISR sẽ được gọi ngay
  * 
@@ -134,7 +134,7 @@ status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
  * NVIC_SetPendingIRQ(SWI_IRQn);
  * @endcode
  */
-status_t NVIC_SetPendingIRQ(IRQn_Type IRQn);
+nvic_status_t NVIC_SetPendingIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Clear interrupt pending
@@ -142,16 +142,16 @@ status_t NVIC_SetPendingIRQ(IRQn_Type IRQn);
  * 
  * @param[in] IRQn Interrupt number
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Pending cleared
- *         - STATUS_INVALID_PARAM: Invalid IRQ number
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Pending cleared
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
  * @code
  * // Clear pending flag
  * NVIC_ClearPendingIRQ(LPIT0_Ch0_IRQn);
  * @endcode
  */
-status_t NVIC_ClearPendingIRQ(IRQn_Type IRQn);
+nvic_status_t NVIC_ClearPendingIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Get interrupt pending status
@@ -160,11 +160,11 @@ status_t NVIC_ClearPendingIRQ(IRQn_Type IRQn);
  * @param[in] IRQn Interrupt number
  * @param[out] isPending Pointer to store pending status
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Status retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Status retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_GetPendingIRQ(IRQn_Type IRQn, bool *isPending);
+nvic_status_t NVIC_GetPendingIRQ(IRQn_Type IRQn, bool *isPending);
 
 /**
  * @brief Get interrupt active status
@@ -173,13 +173,13 @@ status_t NVIC_GetPendingIRQ(IRQn_Type IRQn, bool *isPending);
  * @param[in] IRQn Interrupt number
  * @param[out] isActive Pointer to store active status
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Status retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Status retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
  * @note Active = ISR đang được execute
  */
-status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
+nvic_status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
 
 /**
  * @brief Set interrupt priority
@@ -188,9 +188,9 @@ status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
  * @param[in] IRQn Interrupt number
  * @param[in] priority Priority value (0-15, 0 = highest)
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority set
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority set
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
  * @note Priority thấp hơn (số nhỏ hơn) có độ ưu tiên cao hơn
  *       Priority 0 = highest, Priority 15 = lowest
@@ -203,7 +203,7 @@ status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
  * NVIC_SetPriority(DMA0_IRQn, 2);
  * @endcode
  */
-status_t NVIC_SetPriority(IRQn_Type IRQn, uint8_t priority);
+nvic_status_t NVIC_SetPriority(IRQn_Type IRQn, uint8_t priority);
 
 /**
  * @brief Get interrupt priority
@@ -212,11 +212,11 @@ status_t NVIC_SetPriority(IRQn_Type IRQn, uint8_t priority);
  * @param[in] IRQn Interrupt number
  * @param[out] priority Pointer to store priority value
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
+nvic_status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
 
 /**
  * @brief Set priority grouping
@@ -224,9 +224,9 @@ status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
  * 
  * @param[in] priorityGroup Priority grouping configuration
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority grouping set
- *         - STATUS_INVALID_PARAM: Invalid priority group
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority grouping set
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid priority group
  * 
  * @note Priority grouping ảnh hưởng đến preemption:
  *       - PRIORITYGROUP_0: 0 bit preempt, 4 bit sub (no preemption)
@@ -240,7 +240,7 @@ status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
  * NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
  * @endcode
  */
-status_t NVIC_SetPriorityGrouping(nvic_priority_group_t priorityGroup);
+nvic_status_t NVIC_SetPriorityGrouping(nvic_priority_group_t priorityGroup);
 
 /**
  * @brief Get priority grouping
@@ -248,11 +248,11 @@ status_t NVIC_SetPriorityGrouping(nvic_priority_group_t priorityGroup);
  * 
  * @param[out] priorityGroup Pointer to store priority grouping
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority grouping retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority grouping retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
+nvic_status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
 
 /**
  * @brief Encode priority
@@ -263,9 +263,9 @@ status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
  * @param[in] subPriority Sub priority
  * @param[out] priority Pointer to store encoded priority
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority encoded
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority encoded
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
  * @note Hàm này giúp tính toán priority value từ preempt và sub priority
  * 
@@ -276,7 +276,7 @@ status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
  * NVIC_SetPriority(LPIT0_Ch0_IRQn, priority);
  * @endcode
  */
-status_t NVIC_EncodePriority(nvic_priority_group_t priorityGroup,
+nvic_status_t NVIC_EncodePriority(nvic_priority_group_t priorityGroup,
                               uint8_t preemptPriority,
                               uint8_t subPriority,
                               uint8_t *priority);
@@ -290,11 +290,11 @@ status_t NVIC_EncodePriority(nvic_priority_group_t priorityGroup,
  * @param[out] preemptPriority Pointer to store preemption priority
  * @param[out] subPriority Pointer to store sub priority
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Priority decoded
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Priority decoded
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_DecodePriority(nvic_priority_group_t priorityGroup,
+nvic_status_t NVIC_DecodePriority(nvic_priority_group_t priorityGroup,
                               uint8_t priority,
                               uint8_t *preemptPriority,
                               uint8_t *subPriority);
@@ -344,13 +344,13 @@ void NVIC_EnableGlobalIRQ(uint32_t primask);
  * 
  * @param[in] offset Vector table offset address (must be aligned to 128 bytes)
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Vector table offset set
- *         - STATUS_INVALID_PARAM: Invalid offset (not aligned)
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Vector table offset set
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid offset (not aligned)
  * 
  * @note Thường dùng khi bootloader chuyển sang application
  */
-status_t NVIC_SetVectorTable(uint32_t offset);
+nvic_status_t NVIC_SetVectorTable(uint32_t offset);
 
 /**
  * @brief Get vector table offset
@@ -358,11 +358,11 @@ status_t NVIC_SetVectorTable(uint32_t offset);
  * 
  * @param[out] offset Pointer to store vector table offset
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Offset retrieved
- *         - STATUS_INVALID_PARAM: Invalid parameter
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Offset retrieved
+ *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  */
-status_t NVIC_GetVectorTable(uint32_t *offset);
+nvic_status_t NVIC_GetVectorTable(uint32_t *offset);
 
 /**
  * @brief Wait for interrupt
@@ -392,10 +392,10 @@ void NVIC_SendEvent(void);
  * @param[in] enableBusFault Enable BusFault handler
  * @param[in] enableMemManageFault Enable MemManage fault handler
  * 
- * @return status_t
- *         - STATUS_SUCCESS: Fault handlers enabled
+ * @return nvic_status_t
+ *         - NVIC_STATUS_SUCCESS: Fault handlers enabled
  */
-status_t NVIC_EnableFaultHandlers(bool enableUsageFault,
+nvic_status_t NVIC_EnableFaultHandlers(bool enableUsageFault,
                                    bool enableBusFault,
                                    bool enableMemManageFault);
 

@@ -169,10 +169,10 @@ status_t CAN_Init(const can_config_t *config)
     /* Clear error counters */
     base->ECR = 0U;
     
-        base->RAMn[4*4 + 0] = (0x4 << 24) | (8 << 16);
-//        base->RAMn[4*4 + 1] = 0x15540000; //filter
-//    base->RAMn[4*4 + 0] = (0x4 << 24);
-    base->IMASK1|= (1 << 4);
+//     base->RAMn[4*4 + 0] = (0x4 << 24) | (8 << 16);
+//     base->RAMn[4*4 + 1] = 0x01EC0000; //filter
+//     base->RAMn[4*4 + 0] = (0x4 << 24);
+//     base->IMASK1|= (1 << 4);
 
     /* Exit freeze mode */
     status = CAN_ExitFreezeMode(base);
@@ -180,12 +180,6 @@ status_t CAN_Init(const can_config_t *config)
         return STATUS_ERROR;
     }
     
-//    base->RAMn[4*4 + 0] = (0x4 << 24) | (8 << 16);
-//    base->RAMn[4*4 + 1] = 0x15540000; //filter
-
-
-
-
     /* Mark as initialized */
     s_canInitialized[config->instance] = true;
     
@@ -483,7 +477,7 @@ status_t CAN_ConfigRxFilter(uint8_t instance, uint8_t mbIndex,
     cs = (CAN_CS_CODE_RX_EMPTY << CAN_CS_CODE_SHIFT);
     
     if (filter->idType == CAN_ID_EXT) {
-        cs |= CAN_CS_IDE_MASK;
+        cs |= CAN_WMBn_CS_IDE_MASK;
     }
     
     base->RAMn[mbOffset + 0] = cs;
@@ -530,10 +524,10 @@ status_t CAN_InstallRxCallback(uint8_t instance, uint8_t mbIndex,
     s_rxUserData[instance][mbIndex] = userData;
     
     /* Enable interrupt for this MB */
-    if (callback != NULL) {
-        CAN_Type *base = s_canBases[instance];
-        base->IMASK1 |= (1UL << mbIndex);
-    }
+  
+    CAN_Type *base = s_canBases[instance];
+    base->IMASK1 |= (1UL << mbIndex);
+    
     
     return STATUS_SUCCESS;
 }
