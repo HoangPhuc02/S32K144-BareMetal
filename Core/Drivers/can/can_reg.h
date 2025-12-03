@@ -967,9 +967,14 @@ typedef enum {
 #define CAN_PL2_PLMASK_HI_Data_byte_4_WIDTH  (8U)
 #define CAN_PL2_PLMASK_HI_Data_byte_4(x)     (((uint32_t)(((uint32_t)(x)) << CAN_PL2_PLMASK_HI_Data_byte_4_SHIFT)) & CAN_PL2_PLMASK_HI_Data_byte_4_MASK)
 /*! @} */
-
+// TODO add buffer structure
 /*! @name WMBn_CS - Wake Up Message Buffer register for C/S */
 /*! @{ */
+#define CAN_WMBn_CS_CODE_MASK                 (0xF000000U)
+#define CAN_WMBn_CS_CODE_SHIFT                (24U)
+#define CAN_WMBn_CS_CODE_WIDTH                (4U)
+#define CAN_WMBn_CS_CODE(x)                   (((uint32_t)(((uint32_t)(x)) << CAN_WMBn_CS_CODE_SHIFT)) & CAN_WMBn_CS_CODE_MASK)
+
 
 #define CAN_WMBn_CS_DLC_MASK                 (0xF0000U)
 #define CAN_WMBn_CS_DLC_SHIFT                (16U)

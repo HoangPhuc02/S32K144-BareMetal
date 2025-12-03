@@ -71,9 +71,11 @@ static void *s_errorUserData[CAN_INSTANCE_COUNT];
 static status_t CAN_EnterFreezeMode(CAN_Type *base);
 static status_t CAN_ExitFreezeMode(CAN_Type *base);
 static status_t CAN_SoftReset(CAN_Type *base);
-static void CAN_EnableClock(uint8_t instance);
+static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource);
 static void CAN_InitMessageBuffers(CAN_Type *base);
 static uint32_t CAN_GetClockFrequency(can_clk_src_t clockSource);
+static status_t CAN_ConfigTxMailbox(uint8_t instance, uint8_t mbIndex);
+static status_t CAN_ConfigRxMailbox(uint8_t instance, uint8_t mbIndex, uint32_t id, can_id_type_t idType, uint32_t mask);
 
 /*******************************************************************************
  * Public Functions
@@ -101,7 +103,7 @@ status_t CAN_Init(const can_config_t *config)
     base = s_canBases[config->instance];
     
     /* Enable CAN clock */
-    CAN_EnableClock(config->instance);
+    CAN_EnableClock(config->instance, config->clockSource);
     
     /* Get CAN clock frequency */
     canClockHz = CAN_GetClockFrequency(config->clockSource);
@@ -130,7 +132,8 @@ status_t CAN_Init(const can_config_t *config)
                   ((uint32_t)timing.rJumpWidth << CAN_CTRL1_RJW_SHIFT) |
                   ((uint32_t)timing.phaseSeg1 << CAN_CTRL1_PSEG1_SHIFT) |
                   ((uint32_t)timing.phaseSeg2 << CAN_CTRL1_PSEG2_SHIFT) |
-                  ((uint32_t)timing.propSeg << CAN_CTRL1_PROPSEG_SHIFT);
+                  ((uint32_t)timing.propSeg << CAN_CTRL1_PROPSEG_SHIFT)|
+                  ((uint32_t)3<<CAN_CTRL1_SMP_SHIFT);
     
     /* Configure operating mode */
     if (config->mode == CAN_MODE_LOOPBACK) {
@@ -166,12 +169,23 @@ status_t CAN_Init(const can_config_t *config)
     /* Clear error counters */
     base->ECR = 0U;
     
+        base->RAMn[4*4 + 0] = (0x4 << 24) | (8 << 16);
+//        base->RAMn[4*4 + 1] = 0x15540000; //filter
+//    base->RAMn[4*4 + 0] = (0x4 << 24);
+    base->IMASK1|= (1 << 4);
+
     /* Exit freeze mode */
     status = CAN_ExitFreezeMode(base);
     if (status != STATUS_SUCCESS) {
         return STATUS_ERROR;
     }
     
+//    base->RAMn[4*4 + 0] = (0x4 << 24) | (8 << 16);
+//    base->RAMn[4*4 + 1] = 0x15540000; //filter
+
+
+
+
     /* Mark as initialized */
     s_canInitialized[config->instance] = true;
     
@@ -203,9 +217,6 @@ status_t CAN_Deinit(uint8_t instance)
     } else {
     	PCC->PCCn[PCC_FLEXCAN2_INDEX] &=~ PCC_PCCn_CGC_MASK;
     }
-    
-
-
 
     /* Clear initialized flag */
     s_canInitialized[instance] = false;
@@ -266,19 +277,19 @@ status_t CAN_Send(uint8_t instance, uint8_t mbIndex, const can_message_t *messag
     base->RAMn[mbOffset + 1] = id;
     
     /* Configure CS word and activate transmission */
-    cs = (CAN_CS_CODE_TX_ONCE << CAN_CS_CODE_SHIFT) |
-         ((uint32_t)message->dataLength << CAN_CS_DLC_SHIFT);
+    cs = (CAN_CS_CODE_TX_DATA << CAN_CS_CODE_SHIFT) |
+         ((uint32_t)message->dataLength << CAN_WMBn_CS_DLC_SHIFT);
     
     if (message->idType == CAN_ID_EXT) {
-        cs |= CAN_CS_IDE_MASK;
+        cs |= CAN_WMBn_CS_IDE_MASK;
     }
     
     if (message->idType == CAN_ID_STD) {
-        cs |= CAN_CS_SRR_MASK;  /* SRR=1 for standard ID transmission */
+        cs |= CAN_WMBn_CS_SRR_MASK;  /* SRR=1 for standard ID transmission */
     }
     
     if (message->frameType == CAN_FRAME_REMOTE) {
-        cs |= CAN_CS_RTR_MASK;
+        cs |= CAN_WMBn_CS_RTR_MASK;
     }
     
     base->RAMn[mbOffset + 0] = cs;  /* Write CS to activate MB */
@@ -360,7 +371,7 @@ status_t CAN_Receive(uint8_t instance, uint8_t mbIndex, can_message_t *message)
     id = base->RAMn[mbOffset + 1];
     
     /* Extract message information */
-    if (cs & CAN_CS_IDE_MASK) {
+    if (cs & CAN_WMBn_CS_IDE_MASK) {
         message->idType = CAN_ID_EXT;
         message->id = (id & CAN_ID_EXT_MASK) >> CAN_ID_EXT_SHIFT;
     } else {
@@ -368,8 +379,8 @@ status_t CAN_Receive(uint8_t instance, uint8_t mbIndex, can_message_t *message)
         message->id = (id & CAN_ID_STD_MASK) >> CAN_ID_STD_SHIFT;
     }
     
-    message->frameType = (cs & CAN_CS_RTR_MASK) ? CAN_FRAME_REMOTE : CAN_FRAME_DATA;
-    message->dataLength = (cs & CAN_CS_DLC_MASK) >> CAN_CS_DLC_SHIFT;
+    message->frameType = (cs & CAN_WMBn_CS_RTR_MASK) ? CAN_FRAME_REMOTE : CAN_FRAME_DATA;
+    message->dataLength = (cs & CAN_WMBn_CS_DLC_MASK) >> CAN_WMBn_CS_DLC_SHIFT;
     
     /* Read data words */
     data0 = base->RAMn[mbOffset + 2];
@@ -670,13 +681,30 @@ status_t CAN_CalculateTiming(uint32_t canClockHz, uint32_t baudRate,
     
     /* Configure timing with good margin */
     timing->preDiv = (uint8_t)preDiv;
-    timing->preDiv = 5U;
-    timing->propSeg = 7U;       /* Propagation segment */
-    timing->phaseSeg1 = 6U;     /* Phase segment 1 */
+    timing->preDiv = 0U;
+    timing->propSeg = 6U;       /* Propagation segment */
+    timing->phaseSeg1 = 3U;     /* Phase segment 1 */
     timing->phaseSeg2 = 3U;     /* Phase segment 2 */
-    timing->rJumpWidth = 1U;    /* Resynchronization jump width */
+    timing->rJumpWidth = 3U;    /* Resynchronization jump width */
     
     return STATUS_SUCCESS;
+}
+
+/**
+ * @brief Setup TX Mailbox (Public API)
+ */
+status_t CAN_SetupTxMailbox(uint8_t instance, uint8_t mbIndex)
+{
+    return CAN_ConfigTxMailbox(instance, mbIndex);
+}
+
+/**
+ * @brief Setup RX Mailbox with filter (Public API)
+ */
+status_t CAN_SetupRxMailbox(uint8_t instance, uint8_t mbIndex, 
+                            uint32_t id, can_id_type_t idType, uint32_t mask)
+{
+    return CAN_ConfigRxMailbox(instance, mbIndex, id, idType, mask);
 }
 
 /*******************************************************************************
@@ -762,28 +790,33 @@ static status_t CAN_SoftReset(CAN_Type *base)
 /**
  * @brief Enable CAN peripheral clock
  */
-static void CAN_EnableClock(uint8_t instance)
+static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource)
 {
 //	DEV_ASSERT(instance > 2U);
-
+    CAN_Type *base;
+    
+    base = s_canBases[instance];
     /* Get PCC register address */
     if (instance == 0U) {
         PCC->PCCn[PCC_FLEXCAN0_INDEX] |= PCC_PCCn_CGC_MASK;
-
-        CAN0->MCR 	|= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
-        CAN0->CTRL1 &=~ CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = oscillator (8 MHz) */
-        CAN0->MCR 	&= ~CAN_MCR_MDIS_MASK; /* MDIS=0; Enable module config. (Sets FRZ, HALT)*/
     } else if (instance == 1U) {
     	PCC->PCCn[PCC_FLEXCAN1_INDEX] |= PCC_PCCn_CGC_MASK;
-    	CAN1->MCR 	|= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
-    	CAN1->CTRL1 |= CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = oscillator (8 MHz) */
-    	CAN1->MCR 	&= ~CAN_MCR_MDIS_MASK; /* MDIS=0; Enable module config. (Sets FRZ, HALT)*/
     } else {
     	PCC->PCCn[PCC_FLEXCAN2_INDEX] |= PCC_PCCn_CGC_MASK;
-    	CAN2->MCR 	|= CAN_MCR_MDIS_MASK; /* MDIS=1: Disable module before selecting clock */
-    	CAN2->CTRL1 |= CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = oscillator (8 MHz) */
-    	CAN2->MCR 	&= ~CAN_MCR_MDIS_MASK; /* MDIS=0; Enable module config. (Sets FRZ, HALT)*/
     }
+
+    /* MDIS=1: Disable module before selecting clock */
+    base->MCR 	|= CAN_MCR_MDIS_MASK; 
+
+    /* Select clock source in CTRL1*/ 
+    if(clockSource == CAN_CLK_SRC_SOSCDIV2){
+    	base->CTRL1 &=~ CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator (8 MHz) */
+    }else{
+    	base->CTRL1 |= CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = oscillator (8 MHz) */
+    }
+
+    /* MDIS=0; Enable module config. (Sets FRZ, HALT)*/
+    base->MCR 	&= ~CAN_MCR_MDIS_MASK; 
 
 
 }
@@ -806,8 +839,133 @@ static void CAN_InitMessageBuffers(CAN_Type *base)
         base->RXIMR[i] = 0xFFFFFFFFUL;
     }
     
-    /* Clear all interrupt flags */
+    /* Clear all interrupt flags 
+        This reg is w1c*/
     base->IFLAG1 = 0xFFFFFFFFUL;
+}
+
+/**
+ * @brief Configure TX Mailbox
+ * @param instance CAN instance number (0-2)
+ * @param mbIndex Message Buffer index to configure for TX
+ * @return STATUS_SUCCESS if successful, error code otherwise
+ */
+static status_t CAN_ConfigTxMailbox(uint8_t instance, uint8_t mbIndex)
+{
+    CAN_Type *base;
+    uint32_t mbOffset;
+    
+    /* Validate parameters */
+    if (instance >= CAN_INSTANCE_COUNT) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    if (mbIndex >= CAN_MB_COUNT) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    if (!s_canInitialized[instance]) {
+        return STATUS_NOT_INITIALIZED;
+    }
+    
+    base = s_canBases[instance];
+    mbOffset = mbIndex * MSG_BUF_SIZE;
+    
+    /* Enter freeze mode to configure */
+    if (CAN_EnterFreezeMode(base) != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    /* Clear Message Buffer */
+    base->RAMn[mbOffset + 0] = 0U;  /* CS - set to INACTIVE */
+    base->RAMn[mbOffset + 1] = 0U;  /* ID */
+    base->RAMn[mbOffset + 2] = 0U;  /* DATA0 */
+    base->RAMn[mbOffset + 3] = 0U;  /* DATA1 */
+    
+    /* Set MB code to TX_INACTIVE */
+    base->RAMn[mbOffset + 0] = (CAN_CS_CODE_TX_INACTIVE << CAN_CS_CODE_SHIFT);
+    
+    /* Clear interrupt flag */
+    base->IFLAG1 = (1UL << mbIndex);
+    
+    /* Exit freeze mode */
+    if (CAN_ExitFreezeMode(base) != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    return STATUS_SUCCESS;
+}
+
+/**
+ * @brief Configure RX Mailbox
+ * @param instance CAN instance number (0-2)
+ * @param mbIndex Message Buffer index to configure for RX
+ * @param id CAN ID to filter
+ * @param idType Standard or Extended ID
+ * @param mask Filter mask (1=care, 0=don't care)
+ * @return STATUS_SUCCESS if successful, error code otherwise
+ */
+static status_t CAN_ConfigRxMailbox(uint8_t instance, uint8_t mbIndex, 
+                                    uint32_t id, can_id_type_t idType, uint32_t mask)
+{
+    CAN_Type *base;
+    uint32_t mbOffset;
+    uint32_t cs, idWord;
+    
+    /* Validate parameters */
+    if (instance >= CAN_INSTANCE_COUNT) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    if (mbIndex >= CAN_MB_COUNT) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    if (!s_canInitialized[instance]) {
+        return STATUS_NOT_INITIALIZED;
+    }
+    
+    base = s_canBases[instance];
+    mbOffset = mbIndex * MSG_BUF_SIZE;
+    
+    /* Enter freeze mode to configure */
+    if (CAN_EnterFreezeMode(base) != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    /* Clear Message Buffer */
+    base->RAMn[mbOffset + 0] = 0U;  /* CS */
+    base->RAMn[mbOffset + 1] = 0U;  /* ID */
+    base->RAMn[mbOffset + 2] = 0U;  /* DATA0 */
+    base->RAMn[mbOffset + 3] = 0U;  /* DATA1 */
+    
+    /* Configure ID word */
+    if (idType == CAN_ID_EXT) {
+        idWord = (id << CAN_ID_EXT_SHIFT) & CAN_ID_EXT_MASK;
+    } else {
+        idWord = (id << CAN_ID_STD_SHIFT) & CAN_ID_STD_MASK;
+    }
+    base->RAMn[mbOffset + 1] = idWord;
+    
+    /* Configure individual mask */
+    base->RXIMR[mbIndex] = mask;
+    
+    /* Configure CS word as RX EMPTY */
+    cs = (CAN_CS_CODE_RX_EMPTY << CAN_CS_CODE_SHIFT);
+    if (idType == CAN_ID_EXT) {
+        cs |= CAN_WMBn_CS_IDE_MASK;
+    }
+    base->RAMn[mbOffset + 0] = cs;
+    
+    /* Clear interrupt flag */
+    base->IFLAG1 = (1UL << mbIndex);
+    
+    /* Exit freeze mode */
+    if (CAN_ExitFreezeMode(base) != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    return STATUS_SUCCESS;
 }
 
 /**

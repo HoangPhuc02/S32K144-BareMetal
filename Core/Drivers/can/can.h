@@ -70,19 +70,28 @@
 /* CS field masks and shifts */
 #define CAN_CS_CODE_SHIFT                (24U)
 #define CAN_CS_CODE_MASK                 (0x0F000000U)
-#define CAN_CS_IDE_MASK                  (0x00200000U)
+// #define CAN_CS_IDE_MASK                  (0x00200000U)
 #define CAN_CS_SRR_MASK                  (0x00400000U)
-#define CAN_CS_RTR_MASK                  (0x00100000U)
-#define CAN_CS_DLC_SHIFT                 (16U)
-#define CAN_CS_DLC_MASK                  (0x000F0000U)
+// #define CAN_CS_RTR_MASK                  (0x00100000U)
+// #define CAN_CS_DLC_SHIFT                 (16U)
+// #define CAN_CS_DLC_MASK                  (0x000F0000U)
 
 /* MB CODE values */
 #define CAN_CS_CODE_TX_INACTIVE          (0x08U)
 #define CAN_CS_CODE_TX_ABORT             (0x09U)
-#define CAN_CS_CODE_TX_ONCE              (0x0CU)
-#define CAN_CS_CODE_RX_INACTIVE          (0x00U)
-#define CAN_CS_CODE_RX_EMPTY             (0x04U)
-#define CAN_CS_CODE_RX_FULL              (0x02U)
+// RTR must be 0
+#define CAN_CS_CODE_TX_DATA              (0x0CU)    /* Transmit data frame RTR must be 0 */
+// RTR must be 1
+#define CAN_CS_CODE_TX_REMOTE            (0x0CU)    /* Transmit remote frame RTR must be 1 */
+#define CAN_CS_CODE_TX_TANSWER           (0x0EU)
+
+
+#define CAN_CS_CODE_RX_INACTIVE          (0x00U)    /* MB is not active*/
+#define CAN_CS_CODE_RX_EMPTY             (0x04U)    /* MB is active and empty*/
+#define CAN_CS_CODE_RX_FULL              (0x02U)    /* MB is active and full*/
+#define CAN_CS_CODE_RX_OVERRUN           (0x06U)    /* MB is active and overrun*/
+#define CAN_CS_CODE_RX_RANSWER           (0x0AU)    /* A frame was configured to remote request*/
+#define CAN_CS_CODE_RX_BUSY              (0x01U)    /* MB is busy receiving data*/
 
 /* ID field masks and shifts */
 #define CAN_ID_STD_SHIFT                 (18U)
@@ -905,5 +914,80 @@ status_t CAN_IsMbBusy(uint8_t instance, uint8_t mbIndex, bool *isBusy);
  */
 status_t CAN_CalculateTiming(uint32_t canClockHz, uint32_t baudRate, 
                              can_timing_config_t *timing);
+
+/**
+ * @brief Setup TX Mailbox
+ * @details Configures a Message Buffer for transmission operation.
+ *          The mailbox will be initialized and ready to send messages.
+ * 
+ * @param[in] instance CAN instance number (0-2)
+ * @param[in] mbIndex Message Buffer index to configure for TX (typically 8-15)
+ * 
+ * @return status_t
+ *         - STATUS_SUCCESS: TX mailbox configured successfully
+ *         - STATUS_INVALID_PARAM: Invalid instance or mbIndex
+ *         - STATUS_NOT_INITIALIZED: CAN not initialized
+ *         - STATUS_TIMEOUT: Failed to enter/exit freeze mode
+ * 
+ * @note - Should be called after CAN_Init() and before using CAN_Send()
+ *       - Typical TX mailbox indices: 8-15 for dedicated transmission
+ *       - The mailbox will be set to TX_INACTIVE state
+ * 
+ * @par Example:
+ * @code
+ * // Configure MB8 for transmission
+ * CAN_SetupTxMailbox(0, 8);
+ * 
+ * // Now ready to send messages
+ * can_message_t txMsg = { .id = 0x123, .dataLength = 8, ... };
+ * CAN_Send(0, 8, &txMsg);
+ * @endcode
+ */
+status_t CAN_SetupTxMailbox(uint8_t instance, uint8_t mbIndex);
+
+/**
+ * @brief Setup RX Mailbox with filter
+ * @details Configures a Message Buffer for reception with ID filtering.
+ *          The mailbox will accept messages matching the specified ID and mask.
+ * 
+ * @param[in] instance CAN instance number (0-2)
+ * @param[in] mbIndex Message Buffer index to configure for RX (typically 16-31)
+ * @param[in] id CAN identifier to filter (11-bit STD or 29-bit EXT)
+ * @param[in] idType ID type: CAN_ID_STD (11-bit) or CAN_ID_EXT (29-bit)
+ * @param[in] mask Filter mask (1=must match, 0=don't care)
+ *                 - For exact match: 0x1FFFFFFF (EXT) or 0x7FF (STD)
+ *                 - For accept all: 0x00000000
+ * 
+ * @return status_t
+ *         - STATUS_SUCCESS: RX mailbox configured successfully
+ *         - STATUS_INVALID_PARAM: Invalid parameters
+ *         - STATUS_NOT_INITIALIZED: CAN not initialized
+ *         - STATUS_TIMEOUT: Failed to enter/exit freeze mode
+ * 
+ * @note - Should be called after CAN_Init() and before receiving messages
+ *       - Typical RX mailbox indices: 16-31 for dedicated reception
+ *       - Multiple RX mailboxes can have different filters
+ *       - Mask bits: 1=ID bit must match, 0=ID bit is don't care
+ * 
+ * @par Example:
+ * @code
+ * // Accept only ID 0x123 (exact match, standard 11-bit)
+ * CAN_SetupRxMailbox(0, 16, 0x123, CAN_ID_STD, 0x7FF);
+ * 
+ * // Accept ID range 0x200-0x2FF (standard, mask lower 8 bits)
+ * CAN_SetupRxMailbox(0, 17, 0x200, CAN_ID_STD, 0x700);
+ * 
+ * // Accept all messages (no filtering)
+ * CAN_SetupRxMailbox(0, 18, 0, CAN_ID_STD, 0x000);
+ * 
+ * // Now ready to receive
+ * can_message_t rxMsg;
+ * if (CAN_Receive(0, 16, &rxMsg) == STATUS_SUCCESS) {
+ *     // Process received message
+ * }
+ * @endcode
+ */
+status_t CAN_SetupRxMailbox(uint8_t instance, uint8_t mbIndex, 
+                            uint32_t id, can_id_type_t idType, uint32_t mask);
 
 #endif /* CAN_H */
