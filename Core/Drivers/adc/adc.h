@@ -418,6 +418,101 @@ ADC_Status_t ADC_DisableClock(ADC_Instance_t instance);
  */
 ADC_Status_t ADC_RegisterCallback(ADC_Instance_t instance, ADC_Callback_t callback);
 
+/*******************************************************************************
+ * Hardware Trigger Functions (LPIT Trigger)
+ ******************************************************************************/
+
+/**
+ * @brief Configure ADC for LPIT hardware trigger
+ * 
+ * This function configures the ADC to be triggered by LPIT (Low Power Interrupt Timer).
+ * When enabled, ADC conversion will start automatically on each LPIT trigger event.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @param[in] channel ADC channel to convert on trigger
+ * @param[in] enableInterrupt Enable interrupt on conversion complete
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @note 
+ * - LPIT must be configured and started separately using LPIT driver
+ * - ADC will automatically start conversion on each LPIT channel 0 trigger
+ * - Use ADC_TRIGGER_HARDWARE in ADC_Config_t.triggerSource
+ * 
+ * @par Example:
+ * @code
+ * // Configure ADC for hardware trigger on channel AD0
+ * ADC_ConfigHardwareTrigger(ADC_INSTANCE_0, ADC_CHANNEL_AD0, true);
+ * 
+ * // Configure LPIT to trigger at 1 kHz
+ * lpit_channel_config_t lpitConfig = {
+ *     .channel = 0,
+ *     .period = 48000,  // 1 kHz at 48 MHz
+ *     .enableInterrupt = false
+ * };
+ * LPIT_ConfigChannel(&lpitConfig);
+ * LPIT_StartChannel(0);
+ * @endcode
+ */
+ADC_Status_t ADC_ConfigHardwareTrigger(ADC_Instance_t instance, ADC_Channel_t channel, bool enableInterrupt);
+
+/**
+ * @brief Start ADC in hardware trigger mode with LPIT
+ * 
+ * This is a convenience function that:
+ * 1. Configures ADC for hardware trigger
+ * 2. Sets up the specified channel
+ * 3. Enables the ADC to wait for LPIT triggers
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @param[in] channel ADC channel to convert
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @note LPIT must be configured and started separately
+ * 
+ * @par Example:
+ * @code
+ * // Start ADC in hardware trigger mode
+ * ADC_StartHardwareTrigger(ADC_INSTANCE_0, ADC_CHANNEL_AD0);
+ * 
+ * // ADC will now convert on each LPIT trigger
+ * @endcode
+ */
+ADC_Status_t ADC_StartHardwareTrigger(ADC_Instance_t instance, ADC_Channel_t channel);
+
+/**
+ * @brief Stop ADC hardware trigger mode
+ * 
+ * This function disables ADC hardware trigger and stops automatic conversions.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @par Example:
+ * @code
+ * ADC_StopHardwareTrigger(ADC_INSTANCE_0);
+ * @endcode
+ */
+ADC_Status_t ADC_StopHardwareTrigger(ADC_Instance_t instance);
+
+/**
+ * @brief Check if ADC is in hardware trigger mode
+ * 
+ * This function checks if the ADC is currently configured for hardware trigger.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @return bool Hardware trigger status
+ * @retval true ADC is in hardware trigger mode
+ * @retval false ADC is in software trigger mode
+ * 
+ * @par Example:
+ * @code
+ * if (ADC_IsHardwareTriggerEnabled(ADC_INSTANCE_0)) {
+ *     // ADC is waiting for hardware triggers
+ * }
+ * @endcode
+ */
+bool ADC_IsHardwareTriggerEnabled(ADC_Instance_t instance);
+
 /** @} */
 
 #endif /* ADC_H */

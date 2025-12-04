@@ -468,3 +468,93 @@ void ADC1_IRQHandler(void)
         }
     }
 }
+
+/*******************************************************************************
+ * Hardware Trigger Functions (LPIT Trigger)
+ ******************************************************************************/
+
+/**
+ * @brief Configure ADC for LPIT hardware trigger
+ */
+ADC_Status_t ADC_ConfigHardwareTrigger(ADC_Instance_t instance, ADC_Channel_t channel, bool enableInterrupt)
+{
+    ADC_RegType *base;
+    
+    if (instance >= 2U) {
+        return ADC_STATUS_ERROR;
+    }
+    
+    base = ADC_GetBase(instance);
+    
+    /* Enable hardware trigger in SC2 register */
+    base->SC2 |= ADC_SC2_ADTRG_MASK;
+    
+    /* Configure channel with optional interrupt */
+    if (enableInterrupt) {
+        base->SC1[0] = ADC_SC1_ADCH(channel) | ADC_SC1_AIEN_MASK;
+    } else {
+        base->SC1[0] = ADC_SC1_ADCH(channel);
+    }
+    
+    return ADC_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Start ADC in hardware trigger mode
+ */
+ADC_Status_t ADC_StartHardwareTrigger(ADC_Instance_t instance, ADC_Channel_t channel)
+{
+    ADC_RegType *base;
+    
+    if (instance >= 2U) {
+        return ADC_STATUS_ERROR;
+    }
+    
+    base = ADC_GetBase(instance);
+    
+    /* Enable hardware trigger */
+    base->SC2 |= ADC_SC2_ADTRG_MASK;
+    
+    /* Set channel to start conversion on trigger */
+    base->SC1[0] = ADC_SC1_ADCH(channel);
+    
+    return ADC_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Stop ADC hardware trigger mode
+ */
+ADC_Status_t ADC_StopHardwareTrigger(ADC_Instance_t instance)
+{
+    ADC_RegType *base;
+    
+    if (instance >= 2U) {
+        return ADC_STATUS_ERROR;
+    }
+    
+    base = ADC_GetBase(instance);
+    
+    /* Disable hardware trigger (switch to software trigger) */
+    base->SC2 &= ~ADC_SC2_ADTRG_MASK;
+    
+    /* Disable channel */
+    base->SC1[0] = ADC_SC1_ADCH(ADC_CHANNEL_DISABLED);
+    
+    return ADC_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Check if hardware trigger is enabled
+ */
+bool ADC_IsHardwareTriggerEnabled(ADC_Instance_t instance)
+{
+    ADC_RegType *base;
+    
+    if (instance >= 2U) {
+        return false;
+    }
+    
+    base = ADC_GetBase(instance);
+    
+    return ((base->SC2 & ADC_SC2_ADTRG_MASK) != 0U);
+}
