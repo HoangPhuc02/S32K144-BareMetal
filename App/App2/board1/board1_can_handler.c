@@ -13,9 +13,9 @@
 #include "protocol.h"
 
 /* Driver API includes */
-// #include "can.h"
-// #include "pcc.h"
-// #include "port.h"
+#include "can.h"
+#include "pcc.h"
+#include "port.h"
 
 /*******************************************************************************
  * PRIVATE VARIABLES
