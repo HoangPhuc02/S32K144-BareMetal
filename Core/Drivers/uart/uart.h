@@ -257,6 +257,130 @@ void UART_EnableClock(uint8_t instance);
 void UART_DisableClock(uint8_t instance);
 
 /*******************************************************************************
+ * Function Prototypes - DMA Transfer
+ ******************************************************************************/
+
+/**
+ * @brief Configure UART for DMA transmission
+ * 
+ * @param[in] base          Pointer to UART peripheral base address
+ * @param[in] dmaChannel    DMA channel number for TX (0-15)
+ * 
+ * @return UART_STATUS_SUCCESS if successful
+ * 
+ * @note This function enables UART TX DMA request but does not start transfer.
+ *       Use UART_SendDMA() to initiate the actual transfer.
+ */
+UART_Status_t UART_ConfigTxDMA(LPUART_RegType *base, uint8_t dmaChannel);
+
+/**
+ * @brief Configure UART for DMA reception
+ * 
+ * @param[in] base          Pointer to UART peripheral base address
+ * @param[in] dmaChannel    DMA channel number for RX (0-15)
+ * 
+ * @return UART_STATUS_SUCCESS if successful
+ * 
+ * @note This function enables UART RX DMA request but does not start transfer.
+ *       Use UART_ReceiveDMA() to initiate the actual transfer.
+ */
+UART_Status_t UART_ConfigRxDMA(LPUART_RegType *base, uint8_t dmaChannel);
+
+/**
+ * @brief Send data using DMA
+ * 
+ * @param[in] base          Pointer to UART peripheral base address
+ * @param[in] dmaChannel    DMA channel number for TX (0-15)
+ * @param[in] txBuff        Pointer to transmit buffer
+ * @param[in] txSize        Number of bytes to send
+ * 
+ * @return UART_STATUS_SUCCESS if transfer started successfully
+ * 
+ * @note This is a non-blocking function. The transfer will complete in the background.
+ *       Use DMA_IsChannelDone() or register a DMA callback to check completion.
+ * 
+ * @code
+ * // Example usage
+ * uint8_t txData[] = "Hello DMA!";
+ * UART_ConfigTxDMA(LPUART1, 0);
+ * UART_SendDMA(LPUART1, 0, txData, sizeof(txData)-1);
+ * // Wait for completion
+ * while (!DMA_IsChannelDone(0));
+ * @endcode
+ */
+UART_Status_t UART_SendDMA(LPUART_RegType *base, uint8_t dmaChannel, 
+                           const uint8_t *txBuff, uint32_t txSize);
+
+/**
+ * @brief Receive data using DMA
+ * 
+ * @param[in]  base         Pointer to UART peripheral base address
+ * @param[in]  dmaChannel   DMA channel number for RX (0-15)
+ * @param[out] rxBuff       Pointer to receive buffer
+ * @param[in]  rxSize       Number of bytes to receive
+ * 
+ * @return UART_STATUS_SUCCESS if transfer started successfully
+ * 
+ * @note This is a non-blocking function. The transfer will complete in the background.
+ *       Use DMA_IsChannelDone() or register a DMA callback to check completion.
+ * 
+ * @code
+ * // Example usage
+ * uint8_t rxData[100];
+ * UART_ConfigRxDMA(LPUART1, 1);
+ * UART_ReceiveDMA(LPUART1, 1, rxData, sizeof(rxData));
+ * // Wait for completion
+ * while (!DMA_IsChannelDone(1));
+ * @endcode
+ */
+UART_Status_t UART_ReceiveDMA(LPUART_RegType *base, uint8_t dmaChannel,
+                              uint8_t *rxBuff, uint32_t rxSize);
+
+/**
+ * @brief Send data using DMA with blocking wait
+ * 
+ * @param[in] base          Pointer to UART peripheral base address
+ * @param[in] dmaChannel    DMA channel number for TX (0-15)
+ * @param[in] txBuff        Pointer to transmit buffer
+ * @param[in] txSize        Number of bytes to send
+ * 
+ * @return UART_STATUS_SUCCESS if transfer completed successfully
+ * 
+ * @note This function blocks until the transfer is complete or timeout occurs.
+ */
+UART_Status_t UART_SendDMABlocking(LPUART_RegType *base, uint8_t dmaChannel,
+                                   const uint8_t *txBuff, uint32_t txSize);
+
+/**
+ * @brief Receive data using DMA with blocking wait
+ * 
+ * @param[in]  base         Pointer to UART peripheral base address
+ * @param[in]  dmaChannel   DMA channel number for RX (0-15)
+ * @param[out] rxBuff       Pointer to receive buffer
+ * @param[in]  rxSize       Number of bytes to receive
+ * 
+ * @return UART_STATUS_SUCCESS if transfer completed successfully
+ * 
+ * @note This function blocks until the transfer is complete or timeout occurs.
+ */
+UART_Status_t UART_ReceiveDMABlocking(LPUART_RegType *base, uint8_t dmaChannel,
+                                      uint8_t *rxBuff, uint32_t rxSize);
+
+/**
+ * @brief Disable UART TX DMA
+ * 
+ * @param[in] base  Pointer to UART peripheral base address
+ */
+void UART_DisableTxDMA(LPUART_RegType *base);
+
+/**
+ * @brief Disable UART RX DMA
+ * 
+ * @param[in] base  Pointer to UART peripheral base address
+ */
+void UART_DisableRxDMA(LPUART_RegType *base);
+
+/*******************************************************************************
  * Interrupt Masks
  ******************************************************************************/
 

@@ -14,6 +14,7 @@
 #include "uart.h"
 #include "uart_reg.h"
 #include "pcc_reg.h"
+#include "dma.h"
 
 /*******************************************************************************
  * Private Definitions
@@ -429,13 +430,16 @@ void UART_EnableClock(uint8_t instance)
 {
     if (instance == 0U) {
         /* Enable LPUART0 clock via PCC */
-        PCC->PCCn[PCC_LPUART0_INDEX] |= PCC_PCCn_CGC_MASK;
+        PCC->PCCn[PCC_LPUART0_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
+        						     |PCC_PCCn_CGC_MASK;
     } else if (instance == 1U) {
         /* Enable LPUART1 clock via PCC */
-        PCC->PCCn[PCC_LPUART1_INDEX] |= PCC_PCCn_CGC_MASK;
+        PCC->PCCn[PCC_LPUART1_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
+			     	 	 	 	 	 |PCC_PCCn_CGC_MASK;
     } else if (instance == 2U) {
         /* Enable LPUART2 clock via PCC */
-        PCC->PCCn[PCC_LPUART2_INDEX] |= PCC_PCCn_CGC_MASK;
+        PCC->PCCn[PCC_LPUART2_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
+			     	 	 	 	 	 |PCC_PCCn_CGC_MASK;
     }
 }
 
@@ -453,5 +457,281 @@ void UART_DisableClock(uint8_t instance)
     } else if (instance == 2U) {
         /* Disable LPUART2 clock via PCC */
         PCC->PCCn[PCC_LPUART2_INDEX] &= ~PCC_PCCn_CGC_MASK;
+    }
+}
+
+/*******************************************************************************
+ * DMA Transfer Functions
+ ******************************************************************************/
+
+/**
+ * @brief Get DMAMUX source for UART instance TX
+ */
+static dmamux_source_t UART_GetTxDmaMuxSource(const LPUART_RegType *base)
+{
+    if (base == LPUART0) {
+        return DMAMUX_SRC_LPUART0_TX;
+    } else if (base == LPUART1) {
+        return DMAMUX_SRC_LPUART1_TX;
+    } else if (base == LPUART2) {
+        return DMAMUX_SRC_LPUART2_TX;
+    }
+    return DMAMUX_SRC_DISABLED;
+}
+
+/**
+ * @brief Get DMAMUX source for UART instance RX
+ */
+static dmamux_source_t UART_GetRxDmaMuxSource(const LPUART_RegType *base)
+{
+    if (base == LPUART0) {
+        return DMAMUX_SRC_LPUART0_RX;
+    } else if (base == LPUART1) {
+        return DMAMUX_SRC_LPUART1_RX;
+    } else if (base == LPUART2) {
+        return DMAMUX_SRC_LPUART2_RX;
+    }
+    return DMAMUX_SRC_DISABLED;
+}
+
+/**
+ * @brief Configure UART for DMA transmission
+ */
+UART_Status_t UART_ConfigTxDMA(LPUART_RegType *base, uint8_t dmaChannel)
+{
+    dmamux_source_t dmaMuxSource;
+    
+    if (base == NULL) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Get DMAMUX source for this UART instance */
+    dmaMuxSource = UART_GetTxDmaMuxSource(base);
+    if (dmaMuxSource == DMAMUX_SRC_DISABLED) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Enable UART TX DMA request */
+    base->BAUD |= LPUART_BAUD_TDMAE_MASK;
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Configure UART for DMA reception
+ */
+UART_Status_t UART_ConfigRxDMA(LPUART_RegType *base, uint8_t dmaChannel)
+{
+    dmamux_source_t dmaMuxSource;
+    
+    if (base == NULL) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Get DMAMUX source for this UART instance */
+    dmaMuxSource = UART_GetRxDmaMuxSource(base);
+    if (dmaMuxSource == DMAMUX_SRC_DISABLED) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Enable UART RX DMA request */
+    base->BAUD |= LPUART_BAUD_RDMAE_MASK;
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Send data using DMA
+ */
+UART_Status_t UART_SendDMA(LPUART_RegType *base, uint8_t dmaChannel, 
+                           const uint8_t *txBuff, uint32_t txSize)
+{
+    status_t dmaStatus;
+    dmamux_source_t dmaMuxSource;
+    dma_channel_config_t dmaConfig;
+    
+    if ((base == NULL) || (txBuff == NULL) || (txSize == 0U)) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Get DMAMUX source */
+    dmaMuxSource = UART_GetTxDmaMuxSource(base);
+    if (dmaMuxSource == DMAMUX_SRC_DISABLED) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Configure DMA channel for UART TX */
+    dmaConfig.channel = dmaChannel;
+    dmaConfig.source = dmaMuxSource;
+    dmaConfig.transferType = DMA_TRANSFER_MEM_TO_PERIPH;
+    dmaConfig.transferSize = DMA_TRANSFER_SIZE_1B;          /* 1 byte per transfer */
+    dmaConfig.priority = DMA_PRIORITY_NORMAL;
+    
+    /* Source: TX buffer */
+    dmaConfig.sourceAddr = (uint32_t)txBuff;
+    dmaConfig.sourceOffset = 1;                             /* Move forward 1 byte */
+    dmaConfig.sourceLastAddrAdjust = 0;
+    
+    /* Destination: UART DATA register */
+    dmaConfig.destAddr = (uint32_t)&(base->DATA);
+    dmaConfig.destOffset = 0;                               /* Keep same address */
+    dmaConfig.destLastAddrAdjust = 0;
+    
+    /* Transfer configuration */
+    dmaConfig.minorLoopBytes = 1U;                          /* 1 byte per minor loop */
+    dmaConfig.majorLoopCount = (uint16_t)txSize;           /* Total bytes to send */
+    dmaConfig.enableInterrupt = false;
+    dmaConfig.disableRequestAfterDone = true;
+    
+    /* Configure and start DMA */
+    dmaStatus = DMA_ConfigChannel(&dmaConfig);
+    if (dmaStatus != STATUS_SUCCESS) {
+        return UART_STATUS_ERROR;
+    }
+    
+    dmaStatus = DMA_StartChannel(dmaChannel);
+    if (dmaStatus != STATUS_SUCCESS) {
+        return UART_STATUS_ERROR;
+    }
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Receive data using DMA
+ */
+UART_Status_t UART_ReceiveDMA(LPUART_RegType *base, uint8_t dmaChannel,
+                              uint8_t *rxBuff, uint32_t rxSize)
+{
+    status_t dmaStatus;
+    dmamux_source_t dmaMuxSource;
+    dma_channel_config_t dmaConfig;
+    
+    if ((base == NULL) || (rxBuff == NULL) || (rxSize == 0U)) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Get DMAMUX source */
+    dmaMuxSource = UART_GetRxDmaMuxSource(base);
+    if (dmaMuxSource == DMAMUX_SRC_DISABLED) {
+        return UART_STATUS_ERROR;
+    }
+    
+    /* Configure DMA channel for UART RX */
+    dmaConfig.channel = dmaChannel;
+    dmaConfig.source = dmaMuxSource;
+    dmaConfig.transferType = DMA_TRANSFER_PERIPH_TO_MEM;
+    dmaConfig.transferSize = DMA_TRANSFER_SIZE_1B;          /* 1 byte per transfer */
+    dmaConfig.priority = DMA_PRIORITY_NORMAL;
+    
+    /* Source: UART DATA register */
+    dmaConfig.sourceAddr = (uint32_t)&(base->DATA);
+    dmaConfig.sourceOffset = 0;                             /* Keep same address */
+    dmaConfig.sourceLastAddrAdjust = 0;
+    
+    /* Destination: RX buffer */
+    dmaConfig.destAddr = (uint32_t)rxBuff;
+    dmaConfig.destOffset = 1;                               /* Move forward 1 byte */
+    dmaConfig.destLastAddrAdjust = 0;
+    
+    /* Transfer configuration */
+    dmaConfig.minorLoopBytes = 1U;                          /* 1 byte per minor loop */
+    dmaConfig.majorLoopCount = (uint16_t)rxSize;           /* Total bytes to receive */
+    dmaConfig.enableInterrupt = false;
+    dmaConfig.disableRequestAfterDone = true;
+    
+    /* Configure and start DMA */
+    dmaStatus = DMA_ConfigChannel(&dmaConfig);
+    if (dmaStatus != STATUS_SUCCESS) {
+        return UART_STATUS_ERROR;
+    }
+    
+    dmaStatus = DMA_StartChannel(dmaChannel);
+    if (dmaStatus != STATUS_SUCCESS) {
+        return UART_STATUS_ERROR;
+    }
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Send data using DMA with blocking wait
+ */
+UART_Status_t UART_SendDMABlocking(LPUART_RegType *base, uint8_t dmaChannel,
+                                   const uint8_t *txBuff, uint32_t txSize)
+{
+    UART_Status_t status;
+    uint32_t timeout = UART_TIMEOUT_COUNT * txSize;
+    
+    /* Start DMA transfer */
+    status = UART_SendDMA(base, dmaChannel, txBuff, txSize);
+    if (status != UART_STATUS_SUCCESS) {
+        return status;
+    }
+    
+    /* Wait for completion */
+    while (!DMA_IsChannelDone(dmaChannel) && (timeout > 0U)) {
+        timeout--;
+    }
+    
+    if (timeout == 0U) {
+        DMA_StopChannel(dmaChannel);
+        return UART_STATUS_TIMEOUT;
+    }
+    
+    /* Clear done flag */
+    DMA_ClearDone(dmaChannel);
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Receive data using DMA with blocking wait
+ */
+UART_Status_t UART_ReceiveDMABlocking(LPUART_RegType *base, uint8_t dmaChannel,
+                                      uint8_t *rxBuff, uint32_t rxSize)
+{
+    UART_Status_t status;
+    uint32_t timeout = UART_TIMEOUT_COUNT * rxSize;
+    
+    /* Start DMA transfer */
+    status = UART_ReceiveDMA(base, dmaChannel, rxBuff, rxSize);
+    if (status != UART_STATUS_SUCCESS) {
+        return status;
+    }
+    
+    /* Wait for completion */
+    while (!DMA_IsChannelDone(dmaChannel) && (timeout > 0U)) {
+        timeout--;
+    }
+    
+    if (timeout == 0U) {
+        DMA_StopChannel(dmaChannel);
+        return UART_STATUS_TIMEOUT;
+    }
+    
+    /* Clear done flag */
+    DMA_ClearDone(dmaChannel);
+    
+    return UART_STATUS_SUCCESS;
+}
+
+/**
+ * @brief Disable UART TX DMA
+ */
+void UART_DisableTxDMA(LPUART_RegType *base)
+{
+    if (base != NULL) {
+        base->BAUD &= ~LPUART_BAUD_TDMAE_MASK;
+    }
+}
+
+/**
+ * @brief Disable UART RX DMA
+ */
+void UART_DisableRxDMA(LPUART_RegType *base)
+{
+    if (base != NULL) {
+        base->BAUD &= ~LPUART_BAUD_RDMAE_MASK;
     }
 }

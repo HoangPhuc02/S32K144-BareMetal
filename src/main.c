@@ -24,7 +24,9 @@
 #include "nvic.h"
 #include "pcc_reg.h"
 #include "clocks_and_modes.h"
+#include "UART.h"
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdbool.h>
 
 /*******************************************************************************
@@ -60,6 +62,17 @@
 #define CAN_RX_MAILBOX          (16U)
 #define CAN_BAUDRATE            (500000U)       /* 500 kbps */
 
+/* UART Configuration */
+#define UART_PORT               PORT_C
+#define UART_TX_PIN             (7U)            /* PTC7 - LPUART1_TX */
+#define UART_RX_PIN             (6U)            /* PTC6 - LPUART1_RX */
+#define UART_BAUDRATE           (115200U)       /* 115200 bps */
+#define UART_MUX                (0x02U)         /* ALT2 for LPUART1 */
+#define UART_PCC_INDEX          (107U)          /* PCC_LPUART1_INDEX */
+#define UART_PCS_VALUE          (0x02U)         /* SOSCDIV2 clock source */
+#define UART_OSR_VALUE          (15U)           /* Oversampling ratio */
+#define UART_SBR_VALUE          (217U)          /* Baud rate divisor for 115200 @ 40MHz */
+
 /* Configuration */
 #define DEBOUNCE_DELAY_MS       (50U)
 
@@ -82,11 +95,23 @@ static volatile bool g_buttonModePressed = false;
 static volatile uint32_t g_messageCounter = 0;
 static volatile bool g_messageReceived = false;
 
+/* UART instance for printf replacement */
+static LPUART_RegType *g_uartInstance = LPUART1;
+static 	UART_Config_t config = {
+		.baudRate = 9600,
+		.parity = UART_PARITY_DISABLED,
+		.stopBits = UART_ONE_STOP_BIT,
+		.dataBits = UART_8_DATA_BITS,
+		.enableRx = true,
+		.enableTx = true
+	};
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
 
 static void InitClocks(void);
+static void InitUART(void);
+static void UART_printf(const char *format, ...);
 static void InitLEDs(void);
 static void InitButtons(void);
 static void InitCAN(void);
@@ -141,11 +166,11 @@ void CAN0_ORed_0_15_MB_IRQHandler(void)
             GPIO_TogglePin(LED_GREEN_GPIO_PORT, LED_GREEN_PIN);
             
             /* Print received message */
-            printf("RX: ID=0x%03lX, Data=", rxMsg.id);
+            UART_printf("RX: ID=0x%03lX, Data=", rxMsg.id);
             for (uint8_t i = 0; i < rxMsg.dataLength; i++) {
-                printf("%02X ", rxMsg.data[i]);
+                UART_printf("%02X ", rxMsg.data[i]);
             }
-            printf("\n");
+            UART_printf("\n");
             
             g_messageReceived = true;
         }
@@ -168,11 +193,11 @@ void CAN0_ORed_16_31_MB_IRQHandler(void)
             GPIO_TogglePin(LED_GREEN_GPIO_PORT, LED_GREEN_PIN);
 
             /* Print received message */
-            printf("RX: ID=0x%03lX, Data=", rxMsg.id);
+            UART_printf("RX: ID=0x%03lX, Data=", rxMsg.id);
             for (uint8_t i = 0; i < rxMsg.dataLength; i++) {
-                printf("%02X ", rxMsg.data[i]);
+                UART_printf("%02X ", rxMsg.data[i]);
             }
-            printf("\n");
+            UART_printf("\n");
 
             g_messageReceived = true;
         }
@@ -187,7 +212,7 @@ void CAN0_ORed_16_31_MB_IRQHandler(void)
  */
 static void InitClocks(void)
 {
-    /* Enable clocks for PORTC (Buttons) */
+    /* Enable clocks for PORTC (Buttons + UART) */
     PCC->PCCn[PCC_PORTC_INDEX] = PCC_PCCn_CGC_MASK;
     
     /* Enable clocks for PORTD (LEDs) */
@@ -198,6 +223,41 @@ static void InitClocks(void)
     
     /* Enable CAN0 clock */
     PCC->PCCn[PCC_FLEXCAN0_INDEX] = PCC_PCCn_CGC_MASK;
+
+    UART_EnableClock(1);
+}
+
+/**
+ * @brief Initialize UART for debug output
+ */
+static void InitUART(void)
+{
+    PORT_SetPinMux(UART_PORT, UART_RX_PIN, PORT_MUX_ALT2);  /* CAN0_RX */
+    PORT_SetPinMux(UART_PORT, UART_TX_PIN, PORT_MUX_ALT2);  /* CAN0_TX */
+    /* Initialize LPUART1 on PTC6/PTC7 at 115200 baud */
+	UART_Init(g_uartInstance,
+    			&config,              /* PORT for TX/RX pins */
+    			8000000);  /* No parity */
+}
+
+/**
+ * @brief UART printf replacement function
+ * @param format Printf-style format string
+ * @param ... Variable arguments
+ */
+static void UART_printf(const char *format, ...)
+{
+    char buffer[256];  /* Buffer for formatted string */
+    va_list args;
+    
+    va_start(args, format);
+    int len = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    if (len > 0 && len < (int)sizeof(buffer)) {
+//        LPUART_transmit_string(g_uartInstance, buffer);
+        UART_SendBlocking(g_uartInstance,(const uint8_t*) buffer, sizeof(buffer));
+    }
 }
 
 /**
@@ -275,7 +335,7 @@ static void InitCAN(void)
     
     status = CAN_Init(&canConfig);
     if (status != STATUS_SUCCESS) {
-        printf("CAN Init failed!\n");
+        UART_printf("CAN Init failed!\n");
         return;
     }
     
@@ -303,7 +363,7 @@ static void InitCAN(void)
     }
 
     
-    printf("CAN initialized: 500 kbps, ID=0x%03X\n", CAN_MESSAGE_ID);
+    UART_printf("CAN initialized: 500 kbps, ID=0x%03X\n", CAN_MESSAGE_ID);
 }
 
 /**
@@ -337,14 +397,14 @@ static void SendCANMessage(void)
     status = CAN_SendBlocking(0, CAN_TX_MAILBOX, &txMsg, 100);
     
     if (status == STATUS_SUCCESS) {
-        printf("TX [%lu]: ", g_messageCounter);
+        UART_printf("TX [%lu]: ", g_messageCounter);
         for (uint8_t i = 0; i < txMsg.dataLength; i++) {
-            printf("%02X ", txMsg.data[i]);
+            UART_printf("%02X ", txMsg.data[i]);
         }
-        printf("\n");
+        UART_printf("\n");
         g_messageCounter++;
     } else {
-        printf("TX failed: status=%d\n", status);
+        UART_printf("TX failed: status=%d\n", status);
     }
     
     SimpleDelay(50);  /* Keep LED on for 50ms */
@@ -394,47 +454,51 @@ static void SimpleDelay(uint32_t ms)
  */
 int main(void)
 {
-    printf("\n");
-    printf("===========================================\n");
-    printf("  CAN TX/RX Mode Selection Example\n");
-    printf("===========================================\n");
-    printf("Hardware:\n");
-    printf("  - SW2 (PTC12): TX trigger button\n");
-    printf("  - SW3 (PTC13): Mode switch button\n");
-    printf("  - Red LED (PTD15): TX mode indicator\n");
-    printf("  - Green LED (PTD16): RX toggle on message\n");
-    printf("  - CAN: PTE4/PTE5\n");
-    printf("\n");
-    printf("Operation:\n");
-    printf("  1. Press SW3 to switch TX/RX mode\n");
-    printf("  2. TX Mode: Red LED ON, press SW2 to send\n");
-    printf("  3. RX Mode: Green LED ON, toggles on RX\n");
-    printf("\n");
-    printf("===========================================\n\n");
-    
+
+
     /* Initialize system clocks */
     SOSC_init_8MHz();
     SPLL_init_160MHz();
     NormalRUNmode_80MHz();
-    
+
     /* Initialize peripherals */
     InitClocks();
+    InitUART();     /* Initialize UART first for debug output */
     InitLEDs();
     InitButtons();
     InitCAN();
+
+    UART_printf("\n");
+    UART_printf("===========================================\n");
+    UART_printf("  CAN TX/RX Mode Selection Example\n");
+    UART_printf("===========================================\n");
+    UART_printf("Hardware:\n");
+    UART_printf("  - SW2 (PTC12): TX trigger button\n");
+    UART_printf("  - SW3 (PTC13): Mode switch button\n");
+    UART_printf("  - Red LED (PTD15): TX mode indicator\n");
+    UART_printf("  - Green LED (PTD16): RX toggle on message\n");
+    UART_printf("  - CAN: PTE4/PTE5\n");
+    UART_printf("  - UART: PTC6/PTC7 @ 115200 baud\n");
+    UART_printf("\n");
+    UART_printf("Operation:\n");
+    UART_printf("  1. Press SW3 to switch TX/RX mode\n");
+    UART_printf("  2. TX Mode: Red LED ON, press SW2 to send\n");
+    UART_printf("  3. RX Mode: Green LED ON, toggles on RX\n");
+    UART_printf("\n");
+    UART_printf("===========================================\n\n");
     
     /* Set initial mode to TX */
     g_currentMode = MODE_TX;
     UpdateModeLEDs();
     if(g_currentMode == MODE_TX)
     {
-        printf("Current Mode: TX\n");
-        printf("Press SW3 to switch mode, SW2 to send (TX mode)\n\n");
+        UART_printf("Current Mode: TX\n");
+        UART_printf("Press SW3 to switch mode, SW2 to send (TX mode)\n\n");
     }
     else
     {
-        printf("Current Mode: RX\n");
-        printf("Press SW3 to switch mode, SW2 to send (TX mode)\n\n");
+        UART_printf("Current Mode: RX\n");
+        UART_printf("Press SW3 to switch mode, SW2 to send (TX mode)\n\n");
     }
 
     
@@ -447,12 +511,12 @@ int main(void)
             /* Toggle mode */
             if (g_currentMode == MODE_TX) {
                 g_currentMode = MODE_RX;
-                printf("\n>>> Switched to RX Mode <<<\n");
-                printf("Waiting for CAN messages...\n\n");
+                UART_printf("\n>>> Switched to RX Mode <<<\n");
+                UART_printf("Waiting for CAN messages...\n\n");
             } else {
                 g_currentMode = MODE_TX;
-                printf("\n>>> Switched to TX Mode <<<\n");
-                printf("Press SW2 to send messages\n\n");
+                UART_printf("\n>>> Switched to TX Mode <<<\n");
+                UART_printf("Press SW2 to send messages\n\n");
             }
             
             /* Update LEDs */
