@@ -162,8 +162,6 @@
 					<fileInfo id="com.nxp.s32ds.cle.arm.mbs.arm32.bare.exe.debug.1559595546.Project_Settings/Debugger/test_Release.launch" name="test_Release.launch" rcbsApplicability="disable" resourcePath="Project_Settings/Debugger/test_Release.launch" toolsToInvoke=""/>
 					<fileInfo id="com.nxp.s32ds.cle.arm.mbs.arm32.bare.exe.debug.1559595546.Project_Settings/Debugger/test_Debug_RAM.launch" name="test_Debug_RAM.launch" rcbsApplicability="disable" resourcePath="Project_Settings/Debugger/test_Debug_RAM.launch" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry excluding="BareMetal|Drivers/inc/flexcan.c|Drivers/lpit|Drivers/dma|Drivers/template" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
-						<entry excluding="HMI" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Middleware"/>
 						<entry excluding="Linker_Files/S32K1xx_flash.ld|Linker_Files/S32K1xx_ram.ld" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Project_Settings"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
@@ -321,7 +319,6 @@
 					<fileInfo id="com.nxp.s32ds.cle.arm.mbs.arm32.bare.exe.debug.1755192844.Project_Settings/Debugger/test_Debug_RAM.launch" name="test_Debug_RAM.launch" rcbsApplicability="disable" resourcePath="Project_Settings/Debugger/test_Debug_RAM.launch" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Linker_Files/S32K1xx_flash.ld|Linker_Files/S32K1xx_ram.ld" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Project_Settings"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="board"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>

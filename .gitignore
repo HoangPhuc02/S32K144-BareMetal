@@ -1,57 +1,31 @@
-# S32 Design Studio Project Files
-*.project
-*.cproject
-.cproject
-.project
-.settings/
-.metadata/
-.launches/
-
-# Build Output Directories
-Debug/
+# Build outputs
+build/
 Debug_FLASH/
 Debug_RAM/
-Release/
 Release_FLASH/
 Release_RAM/
-*.d
+
+# Eclipse/S32DS
+.metadata/
+.settings/
+RemoteSystemsTempFiles/
+
+# IDE specific
+.cproject
+.project
+*.launch
+
+# Compiled files
 *.o
 *.elf
-*.map
 *.hex
 *.bin
-*.s19
-*.srec
+*.map
+*.lst
 
-# S32DS Specific
-.Debug_Configurations/
-*.launch
-S32DS/
+# Logs
+*.log
 
-# IDE Generated Files
-*.swp
-*.bak
-*~
+# OS files
 .DS_Store
 Thumbs.db
-
-# Documentation Build
-/Doxygen/html/
-/Doxygen/latex/
-
-# Temporary Files
-*.tmp
-*.log
-*.args
-
-# Middleware (if generated)
-# */HMI
-
-# MCUXpresso / S32 SDK Generated
-sdk/
-SDK/
-*.mex.bak
-
-# Description file
-.deescription.txt
-description.txt
