@@ -1,12 +1,20 @@
-Phương pháp phổ biến nhất mà các MCU sử dụng để phát hiện chạm trong sơ đồ này là phương pháp **Đo Hằng số Thời gian RC (RC Time Constant Measurement)** hoặc **Chuyển Điện Tích (Charge Transfer)**.
+# Touch Sensor Middleware for S32K144
 
-Dưới đây là cách MCU tương tác với các chân **PTC0, PTC1, PTC2, PTC3** để phát hiện chạm, tập trung vào một cặp cảm ứng (ví dụ: PTC1 và PTC3):
+## Overview
+Professional capacitive touch sensing library using ADC with PDB hardware trigger.
 
----
+## Features
+- ✅ Multi-channel touch detection (up to 8 channels)
+- ✅ PDB hardware trigger for precise periodic sampling (100 Hz default)
+- ✅ Automatic baseline calibration
+- ✅ Drift compensation for environmental changes
+- ✅ Debouncing and filtering
+- ✅ Event callbacks for touch/release
+- ✅ Adjustable per-channel sensitivity
 
-## 1. Vai trò của các chân I/O
+## Quick Start
 
-Trong cặp mạch cảm ứng (ví dụ: Mạch 1: **PTC1** và **PTC3**):
+### 1. Initialization
 
 * **PTC3 (hoặc PTC0):** Thường là chân **Kích thích/Điều khiển (Drive/Source Pin)**. Nó được cấu hình là ngõ ra (Output) để cấp tín hiệu.
 * **PTC1 (hoặc PTC2):** Thường là chân **Đo lường/Cảm nhận (Sense/Receiver Pin)**. Nó được cấu hình là ngõ vào (Input) để đo điện áp.

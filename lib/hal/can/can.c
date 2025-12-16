@@ -27,12 +27,15 @@
 /** @brief Timeout for entering/exiting freeze mode */
 #define CAN_FREEZE_TIMEOUT      (10000U)
 
-/** @brief Default CAN clock frequency (48 MHz from FIRC DIV2) */
-//#define CAN_DEFAULT_CLK_FREQ    (24000000U)
-
-/** @brief Default CAN clock frequency (40 MHz from Bus clock) */
-#define CAN_DEFAULT_CLK_FREQ    (40000000U)
-// TO DO Change this
+/** 
+ * @brief Default CAN clock frequency
+ * @note  CAN clock source can be:
+ *        - FIRC DIV2: 48 MHz / 2 = 24 MHz
+ *        - Bus clock: Typically 40 MHz
+ *        - SOSCDIV2: 8 MHz / 2 = 4 MHz
+ *        Update this value based on your clock configuration
+ */
+#define CAN_DEFAULT_CLK_FREQ    (40000000U)  /* 40 MHz from bus clock */
 /*******************************************************************************
  * Private Variables
  ******************************************************************************/

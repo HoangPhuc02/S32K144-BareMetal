@@ -513,6 +513,137 @@ ADC_Status_t ADC_StopHardwareTrigger(ADC_Instance_t instance);
  */
 bool ADC_IsHardwareTriggerEnabled(ADC_Instance_t instance);
 
+/*******************************************************************************
+ * PDB (Programmable Delay Block) Trigger Functions
+ ******************************************************************************/
+
+/**
+ * @brief Configure ADC to use PDB hardware trigger
+ * 
+ * This function configures the ADC peripheral to be triggered by PDB (Programmable
+ * Delay Block). PDB provides precise periodic triggering for ADC conversions with
+ * minimal CPU intervention.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @param[in] period_us PDB trigger period in microseconds
+ * @param[in] channel ADC channel to convert (0-31)
+ * @param[in] enableDMA Enable DMA requests on conversion complete
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @note 
+ * - PDB clock must be enabled via PCC before calling this function
+ * - PDB uses bus clock for timing
+ * - Typical scan rates: 1 Hz to 100 kHz
+ * - DMA can be used to automatically store results
+ * 
+ * @par Example:
+ * @code
+ * // Configure ADC0 for 10ms periodic sampling (100 Hz) on channel 12
+ * ADC_ConfigPDBTrigger(ADC_INSTANCE_0, 10000, 12, false);
+ * @endcode
+ */
+ADC_Status_t ADC_ConfigPDBTrigger(ADC_Instance_t instance, uint32_t period_us, 
+                                   uint8_t channel, bool enableDMA);
+
+/**
+ * @brief Start PDB periodic triggering of ADC
+ * 
+ * This function enables the PDB to start generating periodic triggers for ADC
+ * conversions. After calling this function, ADC will automatically convert at
+ * the configured rate.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @note ADC_ConfigPDBTrigger() must be called first
+ * 
+ * @par Example:
+ * @code
+ * ADC_StartPDBTrigger(ADC_INSTANCE_0);
+ * // ADC now converting automatically every 10ms
+ * @endcode
+ */
+ADC_Status_t ADC_StartPDBTrigger(ADC_Instance_t instance);
+
+/**
+ * @brief Stop PDB triggering of ADC
+ * 
+ * This function disables the PDB trigger, stopping automatic ADC conversions.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @par Example:
+ * @code
+ * ADC_StopPDBTrigger(ADC_INSTANCE_0);
+ * @endcode
+ */
+ADC_Status_t ADC_StopPDBTrigger(ADC_Instance_t instance);
+
+/**
+ * @brief Configure multi-channel ADC scan with PDB trigger
+ * 
+ * This function sets up ADC for scanning multiple channels sequentially, triggered
+ * by PDB. Each PDB trigger will initiate a scan of all configured channels.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @param[in] channels Array of ADC channel numbers to scan
+ * @param[in] num_channels Number of channels (1-8)
+ * @param[in] period_us Total scan period in microseconds
+ * @param[in] dma_dest_addr DMA destination address (0 = no DMA)
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @note 
+ * - Uses SC1[n] registers for multi-channel conversion
+ * - Channels are scanned sequentially on each trigger
+ * - DMA can automatically store results to memory
+ * 
+ * @par Example:
+ * @code
+ * // Scan 4 channels at 100 Hz (10ms period)
+ * uint8_t channels[] = {12, 13, 14, 15};
+ * uint16_t results[4];
+ * ADC_ConfigFlexScanPDB(ADC_INSTANCE_0, channels, 4, 10000, (uint32_t)results);
+ * ADC_StartPDBTrigger(ADC_INSTANCE_0);
+ * @endcode
+ */
+ADC_Status_t ADC_ConfigFlexScanPDB(ADC_Instance_t instance, const uint8_t *channels, 
+                                    uint8_t num_channels, uint32_t period_us, 
+                                    uint32_t dma_dest_addr);
+
+/**
+ * @brief Get PDB counter value
+ * 
+ * This function returns the current PDB counter value, useful for debugging
+ * and timing analysis.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)  
+ * @return uint16_t Current PDB counter value
+ * 
+ * @par Example:
+ * @code
+ * uint16_t counter = ADC_GetPDBCounter(ADC_INSTANCE_0);
+ * @endcode
+ */
+uint16_t ADC_GetPDBCounter(ADC_Instance_t instance);
+
+/**
+ * @brief Trigger ADC conversion via software PDB trigger
+ * 
+ * This function manually triggers a PDB event, which in turn triggers ADC
+ * conversion. Useful for testing or one-shot conversions in PDB mode.
+ * 
+ * @param[in] instance ADC instance (ADC0 or ADC1)
+ * @return ADC_Status_t Status of the operation
+ * 
+ * @par Example:
+ * @code
+ * // Manually trigger one conversion
+ * ADC_TriggerPDBSoftware(ADC_INSTANCE_0);
+ * @endcode
+ */
+ADC_Status_t ADC_TriggerPDBSoftware(ADC_Instance_t instance);
+
 /** @} */
 
 #endif /* ADC_H */

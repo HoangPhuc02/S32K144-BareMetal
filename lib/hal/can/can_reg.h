@@ -1,33 +1,48 @@
+/*
+** ###################################################################
+**     Processor:           S32K144
+**     Reference manual:    S32K1XXRM Rev. 12.1, 02/2020
+**     Version:             rev. 1.0, 2025-11-30
+**
+**     Abstract:
+**         FlexCAN Register Definitions for S32K144
+**
+**     Copyright (c) 2025
+**     All rights reserved.
+**
+** ###################################################################
+*/
+
 /**
  * @file    can_reg.h
- * @brief   CAN Register Definitions for S32K144
- * @details This file contains register definitions and bit field macros for the CAN module.
- *          CAN is a full CAN controller that supports CAN 2.0A/B protocol.
+ * @brief   FlexCAN Register Definitions for S32K144
+ * @details This file contains register definitions and bit field macros for the FlexCAN module.
+ *          FlexCAN is a full CAN controller that supports CAN 2.0A/B protocol.
  * 
- * The S32K144 has 3 CAN modules:
+ * The S32K144 has 3 FlexCAN modules:
  * - CAN0: 32 Message Buffers, Base address 0x40024000
- * - CAN1: 32 Message Buffers, Base address 0x40025000
- * - CAN2: 32 Message Buffers, Base address 0x4002B000
+ * - CAN1: 16 Message Buffers, Base address 0x40025000
+ * - CAN2: 16 Message Buffers, Base address 0x4002B000
  * 
  * Key Features:
  * - CAN 2.0A (Standard 11-bit ID) and 2.0B (Extended 29-bit ID) support
  * - Bit rates up to 1 Mbps
- * - 32 configurable Message Buffers for TX/RX operations
+ * - Up to 32 configurable Message Buffers for TX/RX operations
  * - Hardware message filtering with RX FIFO or Individual Mask registers
  * - Self-reception disable mode for testing
  * - Listen-Only mode for bus monitoring
  * - Programmable TX arbitration scheme
- * - Programmable error counters and error states
+ * - Error detection and fault confinement
  * 
  * @author  PhucPH32
  * @date    30/11/2025
  * @version 1.0
  * 
- * @note    Refer to S32K1xx Reference Manual Chapter 52 (CAN) for detailed information
+ * @note    Refer to S32K1xx Reference Manual Chapter 52 (FlexCAN) for detailed information
  * @warning Clock must be enabled and pins configured before using CAN module
  * 
  * @par Change Log:
- * - Version 1.0 (30/11/2025): Initial CAN driver implementation
+ * - Version 1.0 (Nov 30, 2025): Initial FlexCAN driver implementation
  */
 
 #ifndef CAN_REG_H
@@ -150,7 +165,7 @@ typedef struct {
  */
 typedef enum {
     CAN_CLK_SRC_SOSCDIV2 = 0U,  /**< System Oscillator DIV2 clock */
-	// TODO: pending cannot set using busclock
+	/* Note: Bus clock selection requires specific PCC configuration */
     CAN_CLK_SRC_BUSCLOCK = 1U,  /**< Bus Internal Reference Clock DIV2 */
 } can_clk_src_t;
 
@@ -967,7 +982,7 @@ typedef enum {
 #define CAN_PL2_PLMASK_HI_Data_byte_4_WIDTH  (8U)
 #define CAN_PL2_PLMASK_HI_Data_byte_4(x)     (((uint32_t)(((uint32_t)(x)) << CAN_PL2_PLMASK_HI_Data_byte_4_SHIFT)) & CAN_PL2_PLMASK_HI_Data_byte_4_MASK)
 /*! @} */
-// TODO add buffer structure
+/* Message Buffer structure defined in can.h */
 /*! @name WMBn_CS - Wake Up Message Buffer register for C/S */
 /*! @{ */
 #define CAN_WMBn_CS_CODE_MASK                 (0xF000000U)

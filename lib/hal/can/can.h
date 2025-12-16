@@ -99,8 +99,11 @@
 #define CAN_ID_EXT_SHIFT                 (0U)
 #define CAN_ID_EXT_MASK                  (0x1FFFFFFFU)
 
-/** @brief Number of Message Buffers per CAN instance */
-// TODO : thiss iss based on CAN peri there are only 16 buffer in CAN1 and CAN2       
+/** 
+ * @brief Number of Message Buffers per CAN instance
+ * @note CAN0 has 32 MBs, while CAN1 and CAN2 have 16 MBs each
+ *       This macro defines the maximum value (32)
+ */
 #define CAN_MB_COUNT        (32U)
 
 /**
