@@ -2,33 +2,33 @@
  * @file    dma.h
  * @brief   DMA (Direct Memory Access) Driver for S32K144
  * @details
- * Driver DMA cung cấp các API để:
- * - Cấu hình và điều khiển các kênh DMA
- * - Thiết lập transfer memory-to-memory, memory-to-peripheral, peripheral-to-memory
- * - Quản lý interrupts và callbacks
- * - Hỗ trợ scatter-gather và channel linking
+ * DMA driver provides APIs to:
+ * - Configure and control DMA channels
+ * - Set up memory-to-memory, memory-to-peripheral, peripheral-to-memory transfers
+ * - Manage interrupts and callbacks
+ * - Support scatter-gather and channel linking
  * 
- * DMA giúp giảm tải CPU bằng cách tự động truyền dữ liệu giữa:
- * - Memory ↔ Memory (mem copy)
- * - Memory ↔ Peripheral (UART, SPI, ADC, etc.)
- * - Peripheral ↔ Peripheral
+ * DMA helps reduce CPU load by automatically transferring data between:
+ * - Memory to Memory (mem copy)
+ * - Memory to Peripheral (UART, SPI, ADC, etc.)
+ * - Peripheral to Peripheral
  * 
  * @author  PhucPH32
  * @date    27/11/2025
  * @version 1.0
  * 
  * @note    
- * - Phải enable clock cho DMA và DMAMUX trước khi sử dụng
- * - Mỗi kênh DMA có một Transfer Control Descriptor (TCD) riêng
- * - Minor loop: một lần truyền nhỏ (vd: 1 byte, 2 bytes, 4 bytes)
- * - Major loop: tập hợp nhiều minor loops
+ * - Must enable clock for DMA and DMAMUX before use
+ * - Each DMA channel has its own Transfer Control Descriptor (TCD)
+ * - Minor loop: one small transfer (e.g., 1 byte, 2 bytes, 4 bytes)
+ * - Major loop: collection of multiple minor loops
  * 
  * @warning 
- * - Địa chỉ source và destination phải aligned đúng với transfer size
- * - Không được thay đổi cấu hình khi DMA đang active
+ * - Source and destination addresses must be aligned according to transfer size
+ * - Cannot change configuration while DMA is active
  * 
  * @par Change Log:
- * - Version 1.0 (27/11/2025): Khởi tạo driver DMA
+ * - Version 1.0 (27/11/2025): Initialize DMA driver
  */
 
 #ifndef DMA_H
@@ -40,7 +40,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "dma_reg.h"
-#include "lib/bsp/device/status.h"
+#include "status.h"
 
 /*******************************************************************************
  * Definitions
@@ -51,24 +51,24 @@
  * @{
  */
 
-/** @brief Số kênh DMA tối đa */
+/** @brief Maximum DMA channels */
 #define DMA_MAX_CHANNELS    (16U)
 
 /**
  * @brief DMA Transfer Size
- * @details Kích thước dữ liệu cho mỗi lần transfer (minor loop)
+ * @details Data size for each transfer (minor loop)
  */
 typedef enum {
     DMA_TRANSFER_SIZE_1B   = 0U,    /**< 1 byte (8-bit) */
     DMA_TRANSFER_SIZE_2B   = 1U,    /**< 2 bytes (16-bit) */
     DMA_TRANSFER_SIZE_4B   = 2U,    /**< 4 bytes (32-bit) */
-    DMA_TRANSFER_SIZE_16B  = 4U,    /**< 16 bytes (128-bit) - chỉ dùng cho aligned transfers */
-    DMA_TRANSFER_SIZE_32B  = 5U     /**< 32 bytes (256-bit) - chỉ dùng cho aligned transfers */
+    DMA_TRANSFER_SIZE_16B  = 4U,    /**< 16 bytes (128-bit) - chá»‰ dÃ¹ng cho aligned transfers */
+    DMA_TRANSFER_SIZE_32B  = 5U     /**< 32 bytes (256-bit) - chá»‰ dÃ¹ng cho aligned transfers */
 } dma_transfer_size_t;
 
 /**
  * @brief DMA Transfer Type
- * @details Loại transfer DMA
+ * @details DMA transfer type
  */
 typedef enum {
     DMA_TRANSFER_MEM_TO_MEM = 0U,   /**< Memory to Memory */
@@ -79,17 +79,17 @@ typedef enum {
 
 /**
  * @brief DMA Channel Priority
- * @details Mức ưu tiên của kênh DMA (0 = thấp nhất, 15 = cao nhất)
+ * @details DMA channel priority level (0 = lowest, 15 = highest)
  */
 typedef enum {
-    DMA_PRIORITY_LOW    = 0U,       /**< Ưu tiên thấp */
-    DMA_PRIORITY_NORMAL = 8U,       /**< Ưu tiên trung bình */
-    DMA_PRIORITY_HIGH   = 15U       /**< Ưu tiên cao */
+    DMA_PRIORITY_LOW    = 0U,       /**< Low priority */
+    DMA_PRIORITY_NORMAL = 8U,       /**< Normal priority */
+    DMA_PRIORITY_HIGH   = 15U       /**< High priority */
 } dma_channel_priority_t;
 
 /**
  * @brief DMA Interrupt Flags
- * @details Các cờ interrupt của DMA
+ * @details DMA interrupt flags
  */
 typedef enum {
     DMA_INT_MAJOR_COMPLETE = 0x02U, /**< Major loop complete interrupt */
@@ -99,36 +99,36 @@ typedef enum {
 
 /**
  * @brief DMA Configuration Structure
- * @details Cấu trúc cấu hình cho một kênh DMA
+ * @details Configuration structure for one DMA channel
  */
 typedef struct {
-    uint8_t channel;                    /**< Số kênh DMA (0-15) */
-    dmamux_source_t source;             /**< Nguồn request từ DMAMUX */
-    dma_transfer_type_t transferType;   /**< Loại transfer */
-    dma_transfer_size_t transferSize;   /**< Kích thước transfer */
-    dma_channel_priority_t priority;    /**< Ưu tiên kênh */
+    uint8_t channel;                    /**< DMA channel number (0-15) */
+    dmamux_source_t source;             /**< Request source from DMAMUX */
+    dma_transfer_type_t transferType;   /**< Transfer type */
+    dma_transfer_size_t transferSize;   /**< Transfer size */
+    dma_channel_priority_t priority;    /**< Channel priority */
     
-    uint32_t sourceAddr;                /**< Địa chỉ nguồn */
-    int16_t sourceOffset;               /**< Offset nguồn sau mỗi minor loop */
-    int32_t sourceLastAddrAdjust;       /**< Điều chỉnh địa chỉ nguồn sau major loop */
+    uint32_t sourceAddr;                /**< Source address */
+    int16_t sourceOffset;               /**< Source offset after each minor loop */
+    int32_t sourceLastAddrAdjust;       /**< Source address adjustment after major loop */
     
-    uint32_t destAddr;                  /**< Địa chỉ đích */
-    int16_t destOffset;                 /**< Offset đích sau mỗi minor loop */
-    int32_t destLastAddrAdjust;         /**< Điều chỉnh địa chỉ đích sau major loop */
+    uint32_t destAddr;                  /**< Destination address */
+    int16_t destOffset;                 /**< Destination offset after each minor loop */
+    int32_t destLastAddrAdjust;         /**< Destination address adjustment after major loop */
     
-    uint32_t minorLoopBytes;            /**< Số bytes transfer trong mỗi minor loop */
-    uint16_t majorLoopCount;            /**< Số lần lặp major loop */
+    uint32_t minorLoopBytes;            /**< Number of bytes to transfer in each minor loop */
+    uint16_t majorLoopCount;            /**< Number of major loop iterations */
     
-    bool enableInterrupt;               /**< Enable interrupt khi hoàn thành major loop */
-    bool disableRequestAfterDone;       /**< Disable DMA request sau khi hoàn thành */
+    bool enableInterrupt;               /**< Enable interrupt when major loop completes */
+    bool disableRequestAfterDone;       /**< Disable DMA request after completion */
     
 } dma_channel_config_t;
 
 /**
  * @brief DMA Callback Function Type
- * @details Function pointer cho callback khi DMA complete hoặc error
- * @param channel Số kênh DMA
- * @param userData Con trỏ tới user data
+ * @details Function pointer for callback when DMA completes or encounters error
+ * @param channel DMA channel number
+ * @param userData Pointer to user data
  */
 typedef void (*dma_callback_t)(uint8_t channel, void *userData);
 
@@ -144,18 +144,18 @@ typedef void (*dma_callback_t)(uint8_t channel, void *userData);
  */
 
 /**
- * @brief Khởi tạo module DMA
+ * @brief Khá»Ÿi táº¡o module DMA
  * @details
- * - Enable clock cho DMA và DMAMUX
- * - Reset tất cả các kênh DMA về trạng thái mặc định
- * - Xóa tất cả interrupt flags
+ * - Enable clock cho DMA vÃ  DMAMUX
+ * - Reset táº¥t cáº£ cÃ¡c kÃªnh DMA vá»� tráº¡ng thÃ¡i máº·c Ä‘á»‹nh
+ * - XÃ³a táº¥t cáº£ interrupt flags
  * 
- * @return STATUS_SUCCESS nếu thành công
+ * @return STATUS_SUCCESS náº¿u thÃ nh cÃ´ng
  * 
- * @note Phải gọi hàm này trước khi sử dụng bất kỳ chức năng DMA nào
+ * @note Pháº£i gá»�i hÃ m nÃ y trÆ°á»›c khi sá»­ dá»¥ng báº¥t ká»³ chá»©c nÄƒng DMA nÃ o
  * 
  * @code
- * // Khởi tạo DMA module
+ * // Khá»Ÿi táº¡o DMA module
  * DMA_Init();
  * @endcode
  */
@@ -164,32 +164,32 @@ status_t DMA_Init(void);
 /**
  * @brief Deinitialize module DMA
  * @details
- * - Disable tất cả các kênh DMA
- * - Disable clock cho DMA và DMAMUX
+ * - Disable táº¥t cáº£ cÃ¡c kÃªnh DMA
+ * - Disable clock cho DMA vÃ  DMAMUX
  * 
- * @return STATUS_SUCCESS nếu thành công
+ * @return STATUS_SUCCESS náº¿u thÃ nh cÃ´ng
  */
 status_t DMA_Deinit(void);
 
 /**
- * @brief Cấu hình một kênh DMA
+ * @brief Cáº¥u hÃ¬nh má»™t kÃªnh DMA
  * @details
- * Thiết lập đầy đủ các tham số cho một kênh DMA:
+ * Thiáº¿t láº­p Ä‘áº§y Ä‘á»§ cÃ¡c tham sá»‘ cho má»™t kÃªnh DMA:
  * - Source/Destination addresses
- * - Transfer size và count
- * - Interrupts và callbacks
+ * - Transfer size vÃ  count
+ * - Interrupts vÃ  callbacks
  * 
- * @param[in] config Con trỏ tới cấu trúc cấu hình DMA
+ * @param[in] config Con trá»� tá»›i cáº¥u trÃºc cáº¥u hÃ¬nh DMA
  * 
- * @return STATUS_SUCCESS nếu cấu hình thành công
- * @return STATUS_ERROR nếu tham số không hợp lệ
+ * @return STATUS_SUCCESS náº¿u cáº¥u hÃ¬nh thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u tham sá»‘ khÃ´ng há»£p lá»‡
  * 
  * @note
- * - Địa chỉ source/dest phải aligned với transfer size
- * - Không được cấu hình khi kênh đang active
+ * - Ä�á»‹a chá»‰ source/dest pháº£i aligned vá»›i transfer size
+ * - KhÃ´ng Ä‘Æ°á»£c cáº¥u hÃ¬nh khi kÃªnh Ä‘ang active
  * 
  * @code
- * // Cấu hình DMA channel 0 để copy memory
+ * // Cáº¥u hÃ¬nh DMA channel 0 Ä‘á»ƒ copy memory
  * dma_channel_config_t config = {
  *     .channel = 0,
  *     .source = DMAMUX_SRC_ALWAYS_ON_60,
@@ -213,15 +213,15 @@ status_t DMA_Deinit(void);
 status_t DMA_ConfigChannel(const dma_channel_config_t *config);
 
 /**
- * @brief Bắt đầu transfer DMA cho một kênh
+ * @brief Báº¯t Ä‘áº§u transfer DMA cho má»™t kÃªnh
  * @details
- * Kích hoạt DMA request cho kênh được chỉ định.
- * Đối với software-triggered DMA (ALWAYS_ON source), sẽ start ngay lập tức.
+ * KÃ­ch hoáº¡t DMA request cho kÃªnh Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh.
+ * Ä�á»‘i vá»›i software-triggered DMA (ALWAYS_ON source), sáº½ start ngay láº­p tá»©c.
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return STATUS_SUCCESS nếu start thành công
- * @return STATUS_ERROR nếu channel không hợp lệ hoặc chưa được cấu hình
+ * @return STATUS_SUCCESS náº¿u start thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh
  * 
  * @code
  * // Start DMA channel 0
@@ -231,66 +231,66 @@ status_t DMA_ConfigChannel(const dma_channel_config_t *config);
 status_t DMA_StartChannel(uint8_t channel);
 
 /**
- * @brief Dừng transfer DMA cho một kênh
- * @details Disable DMA request cho kênh được chỉ định
+ * @brief Dá»«ng transfer DMA cho má»™t kÃªnh
+ * @details Disable DMA request cho kÃªnh Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return STATUS_SUCCESS nếu stop thành công
- * @return STATUS_ERROR nếu channel không hợp lệ
+ * @return STATUS_SUCCESS náº¿u stop thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
  */
 status_t DMA_StopChannel(uint8_t channel);
 
 /**
- * @brief Kiểm tra xem kênh DMA có đang active không
- * @details Đọc bit ACTIVE trong TCD CSR register
+ * @brief Kiá»ƒm tra xem kÃªnh DMA cÃ³ Ä‘ang active khÃ´ng
+ * @details Ä�á»�c bit ACTIVE trong TCD CSR register
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return true nếu kênh đang active
- * @return false nếu kênh không active hoặc channel không hợp lệ
+ * @return true náº¿u kÃªnh Ä‘ang active
+ * @return false náº¿u kÃªnh khÃ´ng active hoáº·c channel khÃ´ng há»£p lá»‡
  */
 bool DMA_IsChannelActive(uint8_t channel);
 
 /**
- * @brief Kiểm tra xem kênh DMA đã hoàn thành chưa
- * @details Đọc bit DONE trong TCD CSR register
+ * @brief Kiá»ƒm tra xem kÃªnh DMA Ä‘Ã£ hoÃ n thÃ nh chÆ°a
+ * @details Ä�á»�c bit DONE trong TCD CSR register
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return true nếu transfer đã hoàn thành
- * @return false nếu chưa hoàn thành hoặc channel không hợp lệ
+ * @return true náº¿u transfer Ä‘Ã£ hoÃ n thÃ nh
+ * @return false náº¿u chÆ°a hoÃ n thÃ nh hoáº·c channel khÃ´ng há»£p lá»‡
  */
 bool DMA_IsChannelDone(uint8_t channel);
 
 /**
- * @brief Clear cờ DONE của kênh DMA
- * @details Xóa bit DONE trong TCD CSR register
+ * @brief Clear cá»� DONE cá»§a kÃªnh DMA
+ * @details XÃ³a bit DONE trong TCD CSR register
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return STATUS_SUCCESS nếu clear thành công
- * @return STATUS_ERROR nếu channel không hợp lệ
+ * @return STATUS_SUCCESS náº¿u clear thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
  */
 status_t DMA_ClearDone(uint8_t channel);
 
 /**
- * @brief Đăng ký callback function cho kênh DMA
+ * @brief Ä�Äƒng kÃ½ callback function cho kÃªnh DMA
  * @details
- * Callback sẽ được gọi khi:
- * - DMA transfer hoàn thành (major loop done)
- * - Có lỗi xảy ra trong quá trình transfer
+ * Callback sáº½ Ä‘Æ°á»£c gá»�i khi:
+ * - DMA transfer hoÃ n thÃ nh (major loop done)
+ * - CÃ³ lá»—i xáº£y ra trong quÃ¡ trÃ¬nh transfer
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * @param[in] callback Function pointer cho callback
- * @param[in] userData Con trỏ tới user data (có thể NULL)
+ * @param[in] userData Con trá»� tá»›i user data (cÃ³ thá»ƒ NULL)
  * 
- * @return STATUS_SUCCESS nếu đăng ký thành công
- * @return STATUS_ERROR nếu channel không hợp lệ hoặc callback NULL
+ * @return STATUS_SUCCESS náº¿u Ä‘Äƒng kÃ½ thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c callback NULL
  * 
  * @code
  * void myDmaCallback(uint8_t channel, void *userData) {
- *     // Xử lý khi DMA complete
+ *     // Xá»­ lÃ½ khi DMA complete
  *     printf("DMA channel %d completed!\n", channel);
  * }
  * 
@@ -300,84 +300,84 @@ status_t DMA_ClearDone(uint8_t channel);
 status_t DMA_InstallCallback(uint8_t channel, dma_callback_t callback, void *userData);
 
 /**
- * @brief Thiết lập ưu tiên cho kênh DMA
+ * @brief Thiáº¿t láº­p Æ°u tiÃªn cho kÃªnh DMA
  * @details
- * Khi nhiều kênh DMA request đồng thời, kênh có priority cao hơn sẽ được phục vụ trước
+ * Khi nhiá»�u kÃªnh DMA request Ä‘á»“ng thá»�i, kÃªnh cÃ³ priority cao hÆ¡n sáº½ Ä‘Æ°á»£c phá»¥c vá»¥ trÆ°á»›c
  * 
- * @param[in] channel Số kênh DMA (0-15)
- * @param[in] priority Mức ưu tiên (0-15, với 15 là cao nhất)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
+ * @param[in] priority Má»©c Æ°u tiÃªn (0-15, vá»›i 15 lÃ  cao nháº¥t)
  * 
- * @return STATUS_SUCCESS nếu thiết lập thành công
- * @return STATUS_ERROR nếu channel không hợp lệ
+ * @return STATUS_SUCCESS náº¿u thiáº¿t láº­p thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
  */
 status_t DMA_SetChannelPriority(uint8_t channel, uint8_t priority);
 
 /**
- * @brief Lấy số lượng major loops còn lại
- * @details Đọc giá trị CITER (Current Iteration Count) từ TCD
+ * @brief Láº¥y sá»‘ lÆ°á»£ng major loops cÃ²n láº¡i
+ * @details Ä�á»�c giÃ¡ trá»‹ CITER (Current Iteration Count) tá»« TCD
  * 
- * @param[in] channel Số kênh DMA (0-15)
- * @param[out] count Con trỏ để lưu số lượng iterations còn lại
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
+ * @param[out] count Con trá»� Ä‘á»ƒ lÆ°u sá»‘ lÆ°á»£ng iterations cÃ²n láº¡i
  * 
- * @return STATUS_SUCCESS nếu đọc thành công
- * @return STATUS_ERROR nếu channel không hợp lệ hoặc count NULL
+ * @return STATUS_SUCCESS náº¿u Ä‘á»�c thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c count NULL
  */
 status_t DMA_GetRemainingMajorLoops(uint8_t channel, uint16_t *count);
 
 /**
- * @brief Enable interrupt cho kênh DMA
+ * @brief Enable interrupt cho kÃªnh DMA
  * @details Enable interrupt khi major loop complete
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return STATUS_SUCCESS nếu enable thành công
- * @return STATUS_ERROR nếu channel không hợp lệ
+ * @return STATUS_SUCCESS náº¿u enable thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
  */
 status_t DMA_EnableChannelInterrupt(uint8_t channel);
 
 /**
- * @brief Disable interrupt cho kênh DMA
+ * @brief Disable interrupt cho kÃªnh DMA
  * @details Disable interrupt khi major loop complete
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @return STATUS_SUCCESS nếu disable thành công
- * @return STATUS_ERROR nếu channel không hợp lệ
+ * @return STATUS_SUCCESS náº¿u disable thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
  */
 status_t DMA_DisableChannelInterrupt(uint8_t channel);
 
 /**
- * @brief Xử lý DMA interrupt (gọi từ ISR)
+ * @brief Xá»­ lÃ½ DMA interrupt (gá»�i tá»« ISR)
  * @details
- * Hàm này xử lý interrupt và gọi callback đã đăng ký.
- * Phải được gọi trong DMA ISR.
+ * HÃ m nÃ y xá»­ lÃ½ interrupt vÃ  gá»�i callback Ä‘Ã£ Ä‘Äƒng kÃ½.
+ * Pháº£i Ä‘Æ°á»£c gá»�i trong DMA ISR.
  * 
- * @param[in] channel Số kênh DMA (0-15)
+ * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
  * 
- * @note Hàm này sẽ clear các interrupt flags tự động
+ * @note HÃ m nÃ y sáº½ clear cÃ¡c interrupt flags tá»± Ä‘á»™ng
  */
 void DMA_IRQHandler(uint8_t channel);
 
 /**
- * @brief Copy dữ liệu từ source sang destination bằng DMA
+ * @brief Copy dá»¯ liá»‡u tá»« source sang destination báº±ng DMA
  * @details
- * Hàm tiện ích để thực hiện memory-to-memory transfer.
- * Hàm này sẽ:
- * - Tự động cấu hình kênh DMA
+ * HÃ m tiá»‡n Ã­ch Ä‘á»ƒ thá»±c hiá»‡n memory-to-memory transfer.
+ * HÃ m nÃ y sáº½:
+ * - Tá»± Ä‘á»™ng cáº¥u hÃ¬nh kÃªnh DMA
  * - Start transfer
- * - Chờ cho đến khi transfer hoàn thành (blocking)
+ * - Chá»� cho Ä‘áº¿n khi transfer hoÃ n thÃ nh (blocking)
  * 
- * @param[in] channel Số kênh DMA sử dụng (0-15)
- * @param[in] src Địa chỉ nguồn
- * @param[out] dest Địa chỉ đích
- * @param[in] size Số bytes cần copy
+ * @param[in] channel Sá»‘ kÃªnh DMA sá»­ dá»¥ng (0-15)
+ * @param[in] src Ä�á»‹a chá»‰ nguá»“n
+ * @param[out] dest Ä�á»‹a chá»‰ Ä‘Ã­ch
+ * @param[in] size Sá»‘ bytes cáº§n copy
  * 
- * @return STATUS_SUCCESS nếu copy thành công
- * @return STATUS_ERROR nếu có lỗi xảy ra
+ * @return STATUS_SUCCESS náº¿u copy thÃ nh cÃ´ng
+ * @return STATUS_ERROR náº¿u cÃ³ lá»—i xáº£y ra
  * 
  * @note
- * - Hàm này là blocking (chờ cho đến khi transfer xong)
- * - Không nên dùng trong interrupt context
+ * - HÃ m nÃ y lÃ  blocking (chá»� cho Ä‘áº¿n khi transfer xong)
+ * - KhÃ´ng nÃªn dÃ¹ng trong interrupt context
  * 
  * @code
  * uint32_t src[256], dest[256];

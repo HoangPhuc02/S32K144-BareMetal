@@ -40,7 +40,7 @@
  *
  */
 
-#include "lib/bsp/device/device_registers.h"
+#include "device_registers.h"
 #include "system_S32K144.h"
 #include "stdbool.h"
 

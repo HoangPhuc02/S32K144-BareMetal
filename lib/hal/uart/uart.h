@@ -259,7 +259,7 @@ void UART_DisableClock(uint8_t instance);
 /*******************************************************************************
  * Function Prototypes - DMA Transfer
  ******************************************************************************/
-
+#if UART_DMA_ENABLE
 /**
  * @brief Configure UART for DMA transmission
  * 
@@ -379,7 +379,7 @@ void UART_DisableTxDMA(LPUART_RegType *base);
  * @param[in] base  Pointer to UART peripheral base address
  */
 void UART_DisableRxDMA(LPUART_RegType *base);
-
+#endif
 /*******************************************************************************
  * Interrupt Masks
  ******************************************************************************/

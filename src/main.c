@@ -1,15 +1,15 @@
 /**
  * @file    can_tx_rx_mode.c
  * @brief   CAN TX/RX Mode Selection Example
- * @details ChÆ°Æ¡ng trÃ¬nh cho phÃ©p chá»�n giá»¯a TX mode vÃ  RX mode
- *          - TX Mode: Nháº¥n nÃºt gá»­i CAN message
- *          - RX Mode: Nháº­n CAN message vÃ  toggle Green LED
+ * @details Program allows switching between TX mode and RX mode
+ *          - TX Mode: Press button to send CAN message
+ *          - RX Mode: Receive CAN message and toggle Green LED
  *
  * Hardware Setup:
- * - Button SW2 (PTC12): Trigger TX trong TX mode
- * - Button SW3 (PTC13): Chuyá»ƒn Ä‘á»•i giá»¯a TX/RX mode
- * - Red LED (PTD15): BÃ¡o hiá»‡u TX mode
- * - Green LED (PTD16): Toggle khi RX nháº­n Ä‘Æ°á»£c message
+ * - Button SW2 (PTC12): Trigger TX in TX mode
+ * - Button SW3 (PTC13): Switch between TX/RX modes
+ * - Red LED (PTD15): TX mode indicator
+ * - Green LED (PTD16): Toggle when RX receives message
  * - CAN TX: PTE5
  * - CAN RX: PTE4
  *
@@ -222,7 +222,7 @@ static void InitClocks(void)
     PCC->PCCn[PCC_PORTE_INDEX] = PCC_PCCn_CGC_MASK;
     
     /* Enable CAN0 clock */
-    PCC->PCCn[PCC_FLEXCAN0_INDEX] = PCC_PCCn_CGC_MASK;
+    PCC->PCCn[PCC_FlexCAN0_INDEX] = PCC_PCCn_CGC_MASK;
 
     UART_EnableClock(1);
 }
@@ -324,12 +324,21 @@ static void InitCAN(void)
     PORT_SetPinMux(CAN_GPIO_PORT, CAN_TX_PIN, PORT_MUX_ALT5);  /* CAN0_TX */
     
     /* Configure CAN */
+//    can_config_t canConfig = {
+//        .instance = 0,
+//        .clockSource = CAN_CLK_SRC_SOSCDIV2,    /* 40 MHz */
+//        .baudRate = CAN_BAUDRATE,                /* 500 kbps */
+//        .mode = CAN_MODE_NORMAL,                 /* Normal mode for actual communication */
+//        .enableSelfReception = false,
+//        .useRxFifo = false
+//    };
+
     can_config_t canConfig = {
         .instance = 0,
-        .clockSource = CAN_CLK_SRC_SOSCDIV2,    /* 40 MHz */
+        .clockSource = CAN_CLK_SRC_SOSCDIV2,    	/* 8 MHz */
         .baudRate = CAN_BAUDRATE,                /* 500 kbps */
-        .mode = CAN_MODE_NORMAL,                 /* Normal mode for actual communication */
-        .enableSelfReception = false,
+        .mode = CAN_MODE_LOOPBACK,                 /* Normal mode for actual communication */
+        .enableSelfReception = true,
         .useRxFifo = false
     };
     

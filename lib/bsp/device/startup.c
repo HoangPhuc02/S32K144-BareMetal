@@ -55,7 +55,7 @@
  *
  */
 
-#include "lib/bsp/device/startup.h"
+#include "startup.h"
 #include <stdint.h>
 
 

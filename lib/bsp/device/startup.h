@@ -17,7 +17,7 @@
 #define STARTUP_H
 
 #include <stdint.h>
-#include "lib/bsp/device/device_registers.h"
+#include "device_registers.h"
 /**
  * @page misra_violations MISRA-C:2012 violations
  *

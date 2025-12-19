@@ -208,11 +208,11 @@ status_t CAN_Deinit(uint8_t instance)
     
     /* Disable clock */
     if (instance == 0U) {
-    	PCC->PCCn[PCC_FLEXCAN0_INDEX] &=~ PCC_PCCn_CGC_MASK;
+    	PCC->PCCn[PCC_FlexCAN0_INDEX] &=~ PCC_PCCn_CGC_MASK;
     } else if (instance == 1U) {
-    	PCC->PCCn[PCC_FLEXCAN1_INDEX] &=~ PCC_PCCn_CGC_MASK;
+    	PCC->PCCn[PCC_FlexCAN1_INDEX] &=~ PCC_PCCn_CGC_MASK;
     } else {
-    	PCC->PCCn[PCC_FLEXCAN2_INDEX] &=~ PCC_PCCn_CGC_MASK;
+    	PCC->PCCn[PCC_FlexCAN2_INDEX] &=~ PCC_PCCn_CGC_MASK;
     }
 
     /* Clear initialized flag */
@@ -795,11 +795,11 @@ static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource)
     base = s_canBases[instance];
     /* Get PCC register address */
     if (instance == 0U) {
-        PCC->PCCn[PCC_FLEXCAN0_INDEX] |= PCC_PCCn_CGC_MASK;
+        PCC->PCCn[PCC_FlexCAN0_INDEX] |= PCC_PCCn_CGC_MASK;
     } else if (instance == 1U) {
-    	PCC->PCCn[PCC_FLEXCAN1_INDEX] |= PCC_PCCn_CGC_MASK;
+    	PCC->PCCn[PCC_FlexCAN1_INDEX] |= PCC_PCCn_CGC_MASK;
     } else {
-    	PCC->PCCn[PCC_FLEXCAN2_INDEX] |= PCC_PCCn_CGC_MASK;
+    	PCC->PCCn[PCC_FlexCAN2_INDEX] |= PCC_PCCn_CGC_MASK;
     }
 
     /* MDIS=1: Disable module before selecting clock */

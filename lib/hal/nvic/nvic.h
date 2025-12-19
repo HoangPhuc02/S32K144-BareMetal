@@ -2,9 +2,9 @@
  * @file    nvic.h
  * @brief   NVIC Driver API for S32K144
  * @details
- * NVIC driver cung cấp các API để quản lý interrupts trong ARM Cortex-M4.
+ * NVIC driver provides APIs to manage interrupts in ARM Cortex-M4.
  * 
- * Tính năng:
+ * Features:
  * - Enable/Disable interrupts
  * - Set interrupt priority
  * - Pending/Clear pending interrupts
@@ -18,7 +18,7 @@
  * 
  * @par Example:
  * @code
- * // Enable và set priority cho LPIT0 Channel 0 interrupt
+ * // Enable and set priority for LPIT0 Channel 0 interrupt
  * NVIC_SetPriority(LPIT0_Ch0_IRQn, 3);
  * NVIC_EnableIRQ(LPIT0_Ch0_IRQn);
  * 
@@ -67,16 +67,16 @@ typedef enum {
 
 /**
  * @brief Enable interrupt
- * @details Enable một interrupt source trong NVIC
+ * @details Enable an interrupt source in NVIC
  * 
- * @param[in] IRQn Interrupt number (từ IRQn_Type enum)
+ * @param[in] IRQn Interrupt number (from IRQn_Type enum)
  * 
  * @return nvic_status_t
  *         - NVIC_STATUS_SUCCESS: Interrupt enabled
  *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
- * @note Phải set priority trước khi enable interrupt
- * @warning Interrupt sẽ trigger ngay nếu pending flag đã set
+ * @note Must set priority before enabling interrupt
+ * @warning Interrupt will trigger immediately if pending flag is already set
  * 
  * @code
  * // Enable LPIT0 Channel 0 interrupt
@@ -87,7 +87,7 @@ nvic_status_t NVIC_EnableIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Disable interrupt
- * @details Disable một interrupt source trong NVIC
+ * @details Disable an interrupt source in NVIC
  * 
  * @param[in] IRQn Interrupt number
  * 
@@ -95,7 +95,7 @@ nvic_status_t NVIC_EnableIRQ(IRQn_Type IRQn);
  *         - NVIC_STATUS_SUCCESS: Interrupt disabled
  *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
- * @note Interrupt đang active sẽ được hoàn thành trước khi disable
+ * @note Active interrupt will be completed before disabling
  * 
  * @code
  * // Disable LPIT0 Channel 0 interrupt
@@ -106,7 +106,7 @@ nvic_status_t NVIC_DisableIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Get interrupt enable status
- * @details Kiểm tra xem interrupt có được enable không
+ * @details Check if interrupt is enabled
  * 
  * @param[in] IRQn Interrupt number
  * @param[out] isEnabled Pointer to store enable status
@@ -119,7 +119,7 @@ nvic_status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
 
 /**
  * @brief Set interrupt pending
- * @details Set pending flag cho một interrupt
+ * @details Set pending flag for an interrupt
  * 
  * @param[in] IRQn Interrupt number
  * 
@@ -127,7 +127,7 @@ nvic_status_t NVIC_GetEnableIRQ(IRQn_Type IRQn, bool *isEnabled);
  *         - NVIC_STATUS_SUCCESS: Pending set
  *         - NVIC_STATUS_INVALID_PARAM: Invalid IRQ number
  * 
- * @note Nếu interrupt enabled, ISR sẽ được gọi ngay
+ * @note If interrupt is enabled, ISR will be called immediately
  * 
  * @code
  * // Trigger software interrupt
@@ -138,7 +138,7 @@ nvic_status_t NVIC_SetPendingIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Clear interrupt pending
- * @details Clear pending flag của một interrupt
+ * @details Clear pending flag of an interrupt
  * 
  * @param[in] IRQn Interrupt number
  * 
@@ -155,7 +155,7 @@ nvic_status_t NVIC_ClearPendingIRQ(IRQn_Type IRQn);
 
 /**
  * @brief Get interrupt pending status
- * @details Kiểm tra xem interrupt có pending không
+ * @details Check if interrupt is pending
  * 
  * @param[in] IRQn Interrupt number
  * @param[out] isPending Pointer to store pending status
@@ -168,7 +168,7 @@ nvic_status_t NVIC_GetPendingIRQ(IRQn_Type IRQn, bool *isPending);
 
 /**
  * @brief Get interrupt active status
- * @details Kiểm tra xem interrupt có đang active (executing) không
+ * @details Check if interrupt is currently active (executing)
  * 
  * @param[in] IRQn Interrupt number
  * @param[out] isActive Pointer to store active status
@@ -177,13 +177,13 @@ nvic_status_t NVIC_GetPendingIRQ(IRQn_Type IRQn, bool *isPending);
  *         - NVIC_STATUS_SUCCESS: Status retrieved
  *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
- * @note Active = ISR đang được execute
+ * @note Active = ISR is being executed
  */
 nvic_status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
 
 /**
  * @brief Set interrupt priority
- * @details Cấu hình priority cho một interrupt
+ * @details Configure priority for an interrupt
  * 
  * @param[in] IRQn Interrupt number
  * @param[in] priority Priority value (0-15, 0 = highest)
@@ -192,7 +192,7 @@ nvic_status_t NVIC_GetActiveIRQ(IRQn_Type IRQn, bool *isActive);
  *         - NVIC_STATUS_SUCCESS: Priority set
  *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
- * @note Priority thấp hơn (số nhỏ hơn) có độ ưu tiên cao hơn
+ * @note Lower priority value (smaller number) has higher precedence
  *       Priority 0 = highest, Priority 15 = lowest
  * 
  * @code
@@ -207,7 +207,7 @@ nvic_status_t NVIC_SetPriority(IRQn_Type IRQn, uint8_t priority);
 
 /**
  * @brief Get interrupt priority
- * @details Đọc priority của một interrupt
+ * @details Read priority of an interrupt
  * 
  * @param[in] IRQn Interrupt number
  * @param[out] priority Pointer to store priority value
@@ -220,7 +220,7 @@ nvic_status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
 
 /**
  * @brief Set priority grouping
- * @details Cấu hình cách chia priority thành preempt và subpriority
+ * @details Configure how priority is divided into preempt and subpriority
  * 
  * @param[in] priorityGroup Priority grouping configuration
  * 
@@ -228,7 +228,7 @@ nvic_status_t NVIC_GetPriority(IRQn_Type IRQn, uint8_t *priority);
  *         - NVIC_STATUS_SUCCESS: Priority grouping set
  *         - NVIC_STATUS_INVALID_PARAM: Invalid priority group
  * 
- * @note Priority grouping ảnh hưởng đến preemption:
+ * @note Priority grouping affects preemption:
  *       - PRIORITYGROUP_0: 0 bit preempt, 4 bit sub (no preemption)
  *       - PRIORITYGROUP_1: 1 bit preempt, 3 bit sub
  *       - PRIORITYGROUP_2: 2 bit preempt, 2 bit sub
@@ -244,7 +244,7 @@ nvic_status_t NVIC_SetPriorityGrouping(nvic_priority_group_t priorityGroup);
 
 /**
  * @brief Get priority grouping
- * @details Đọc priority grouping hiện tại
+ * @details Read current priority grouping
  * 
  * @param[out] priorityGroup Pointer to store priority grouping
  * 
@@ -256,7 +256,7 @@ nvic_status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
 
 /**
  * @brief Encode priority
- * @details Encode preempt priority và sub priority thành priority value
+ * @details Encode preempt priority and sub priority into priority value
  * 
  * @param[in] priorityGroup Priority grouping
  * @param[in] preemptPriority Preemption priority
@@ -267,7 +267,7 @@ nvic_status_t NVIC_GetPriorityGrouping(nvic_priority_group_t *priorityGroup);
  *         - NVIC_STATUS_SUCCESS: Priority encoded
  *         - NVIC_STATUS_INVALID_PARAM: Invalid parameter
  * 
- * @note Hàm này giúp tính toán priority value từ preempt và sub priority
+ * @note This function helps calculate priority value from preempt and sub priority
  * 
  * @code
  * uint8_t priority;
@@ -283,7 +283,7 @@ nvic_status_t NVIC_EncodePriority(nvic_priority_group_t priorityGroup,
 
 /**
  * @brief Decode priority
- * @details Decode priority value thành preempt và sub priority
+ * @details Decode priority value into preempt and sub priority
  * 
  * @param[in] priorityGroup Priority grouping
  * @param[in] priority Priority value
@@ -301,11 +301,11 @@ nvic_status_t NVIC_DecodePriority(nvic_priority_group_t priorityGroup,
 
 /**
  * @brief System reset
- * @details Thực hiện software reset toàn bộ hệ thống
+ * @details Perform software reset of entire system
  * 
- * @return Hàm này không return (system sẽ reset)
+ * @return This function does not return (system will reset)
  * 
- * @warning Tất cả state sẽ bị mất sau khi reset
+ * @warning All state will be lost after reset
  * 
  * @code
  * // Perform system reset
@@ -316,11 +316,11 @@ void NVIC_SystemReset(void);
 
 /**
  * @brief Disable all interrupts (global)
- * @details Disable tất cả interrupts bằng cách set PRIMASK
+ * @details Disable all interrupts by setting PRIMASK
  * 
- * @return Previous PRIMASK value (để restore sau)
+ * @return Previous PRIMASK value (to restore later)
  * 
- * @note Sử dụng cho critical sections
+ * @note Used for critical sections
  * 
  * @code
  * uint32_t primask = NVIC_DisableGlobalIRQ();
@@ -332,7 +332,7 @@ uint32_t NVIC_DisableGlobalIRQ(void);
 
 /**
  * @brief Enable all interrupts (global)
- * @details Restore PRIMASK value để enable interrupts
+ * @details Restore PRIMASK value to enable interrupts
  * 
  * @param[in] primask Previous PRIMASK value
  */
@@ -340,7 +340,7 @@ void NVIC_EnableGlobalIRQ(uint32_t primask);
 
 /**
  * @brief Set vector table offset
- * @details Thay đổi địa chỉ của vector table
+ * @details Change address of vector table
  * 
  * @param[in] offset Vector table offset address (must be aligned to 128 bytes)
  * 
@@ -348,13 +348,13 @@ void NVIC_EnableGlobalIRQ(uint32_t primask);
  *         - NVIC_STATUS_SUCCESS: Vector table offset set
  *         - NVIC_STATUS_INVALID_PARAM: Invalid offset (not aligned)
  * 
- * @note Thường dùng khi bootloader chuyển sang application
+ * @note Commonly used when bootloader transfers to application
  */
 nvic_status_t NVIC_SetVectorTable(uint32_t offset);
 
 /**
  * @brief Get vector table offset
- * @details Đọc địa chỉ hiện tại của vector table
+ * @details Read current address of vector table
  * 
  * @param[out] offset Pointer to store vector table offset
  * 
@@ -366,27 +366,27 @@ nvic_status_t NVIC_GetVectorTable(uint32_t *offset);
 
 /**
  * @brief Wait for interrupt
- * @details Enter sleep mode và chờ interrupt
+ * @details Enter sleep mode and wait for interrupt
  * 
- * @note CPU sẽ được wake up khi có interrupt
+ * @note CPU will be woken up when interrupt occurs
  */
 void NVIC_WaitForInterrupt(void);
 
 /**
  * @brief Wait for event
- * @details Enter sleep mode và chờ event
+ * @details Enter sleep mode and wait for event
  */
 void NVIC_WaitForEvent(void);
 
 /**
  * @brief Send event
- * @details Gửi event để wake up CPU đang ở WFE
+ * @details Send event to wake up CPU in WFE state
  */
 void NVIC_SendEvent(void);
 
 /**
  * @brief Enable fault exceptions
- * @details Enable các fault handlers (UsageFault, BusFault, MemManage)
+ * @details Enable fault handlers (UsageFault, BusFault, MemManage)
  * 
  * @param[in] enableUsageFault Enable UsageFault handler
  * @param[in] enableBusFault Enable BusFault handler

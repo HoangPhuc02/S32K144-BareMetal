@@ -2,23 +2,23 @@
  * @file    dma_reg.h
  * @brief   DMA (Direct Memory Access) Register Definitions for S32K144
  * @details
- * Định nghĩa các thanh ghi và bit field của module DMA và DMAMUX.
- * DMA cho phép truyền dữ liệu giữa bộ nhớ và thiết bị ngoại vi mà không cần CPU.
+ * Defines DMA and DMAMUX module registers and bit fields.
+ * DMA allows data transfer between memory and peripherals without CPU intervention.
  * 
- * S32K144 có:
- * - 16 kênh DMA (DMA channels 0-15)
- * - DMAMUX để chọn nguồn request cho mỗi kênh
- * - Transfer Control Descriptor (TCD) cho mỗi kênh
+ * S32K144 has:
+ * - 16 DMA channels (DMA channels 0-15)
+ * - DMAMUX to select request source for each channel
+ * - Transfer Control Descriptor (TCD) for each channel
  * 
  * @author  PhucPH32
  * @date    27/11/2025
  * @version 1.0
  * 
- * @note    Tham khảo S32K1xx Reference Manual Chapter 21 (eDMA) và Chapter 22 (DMAMUX)
- * @warning Phải enable clock cho DMA và DMAMUX trước khi sử dụng
+ * @note    Refer to S32K1xx Reference Manual Chapter 21 (eDMA) and Chapter 22 (DMAMUX)
+ * @warning Must enable clock for DMA and DMAMUX before use
  * 
  * @par Change Log:
- * - Version 1.0 (27/11/2025): Khởi tạo driver DMA
+ * - Version 1.0 (27/11/2025): Initialize DMA driver
  */
 
 #ifndef DMA_REG_H
@@ -33,13 +33,13 @@
  * Definitions
  ******************************************************************************/
 
-/** @brief Địa chỉ base của DMA module */
+/** @brief Base address of DMA module */
 #define DMA_BASE            (0x40008000UL)
 
-/** @brief Địa chỉ base của DMAMUX module */
+/** @brief Base address of DMAMUX module */
 #define DMAMUX_BASE         (0x40021000UL)
 
-/** @brief Số lượng kênh DMA */
+/** @brief Number of DMA channels */
 #define DMA_CHANNEL_COUNT   (16U)
 
 /*******************************************************************************
@@ -48,10 +48,10 @@
 
 /**
  * @brief DMA Control Register (DMA_CR)
- * @details Thanh ghi điều khiển chung cho DMA module
+ * @details Common control register for DMA module
  */
 typedef struct {
-    __IO uint32_t EDBG       : 1;   /**< Bit 0: Enable Debug - DMA hoạt động khi ở chế độ debug */
+    __IO uint32_t EDBG       : 1;   /**< Bit 0: Enable Debug - DMA operates in debug mode */
     __IO uint32_t ERCA       : 1;   /**< Bit 1: Enable Round Robin Channel Arbitration */
     __I  uint32_t RESERVED1  : 2;   /**< Bits 2-3: Reserved */
     __IO uint32_t HOE        : 1;   /**< Bit 4: Halt On Error */
@@ -66,7 +66,7 @@ typedef struct {
 
 /**
  * @brief DMA Error Status Register (DMA_ES)
- * @details Thanh ghi trạng thái lỗi
+ * @details Error status register
  */
 typedef struct {
     __I  uint32_t DBE        : 1;   /**< Bit 0: Destination Bus Error */
@@ -89,16 +89,16 @@ typedef struct {
 /**
  * @brief Transfer Control Descriptor (TCD)
  * @details
- * Mỗi kênh DMA có một TCD riêng để cấu hình transfer:
+ * Each DMA channel has its own TCD to configure transfer:
  * - Source/Destination address
- * - Transfer size và offset
+ * - Transfer size and offset
  * - Loop count (major/minor)
  * - Control flags (interrupts, linking, etc.)
  */
 typedef struct {
-    __IO uint32_t SADDR;            /**< Source Address - Địa chỉ nguồn */
-    __IO uint16_t SOFF;             /**< Source Offset - Bước nhảy sau mỗi minor loop */
-    __IO uint16_t ATTR;             /**< Transfer Attributes - Kích thước dữ liệu source/dest */
+    __IO uint32_t SADDR;            /**< Source Address - Source address */
+    __IO uint16_t SOFF;             /**< Source Offset - Step after each minor loop */
+    __IO uint16_t ATTR;             /**< Transfer Attributes - Source/dest data size */
     union {
         __IO uint32_t NBYTES_MLNO;  /**< Minor Byte Count (no link) */
         __IO uint32_t NBYTES_MLOFFNO; /**< Minor Byte Count (with offset, no link) */

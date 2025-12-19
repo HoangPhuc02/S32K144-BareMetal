@@ -52,46 +52,52 @@ typedef struct {
 #define PCC                     ((PCC_RegType *)PCC_BASE_ADDR)
 
 /*******************************************************************************
- * ADC PCC Index Offsets
+ * ADC PCC Index Offsets (moved to pcc.h enum)
  ******************************************************************************/
-#define PCC_ADC1_INDEX                           39
-#define PCC_ADC0_INDEX                           59
+/* Note: Peripheral indices are now defined in pcc.h as enum for type safety */
 
-/*******************************************************************************
- * PORT PCC Index Offsets
- ******************************************************************************/
-/** @brief PCC PORT A base address */
-#define PCC_PORTA_INDEX         (73U)
 
-/** @brief PCC PORT B base address */
-#define PCC_PORTB_INDEX         (74U)
-
-/** @brief PCC PORT C base address */
-#define PCC_PORTC_INDEX         (75U)
-
-/** @brief PCC PORT D base address */
-#define PCC_PORTD_INDEX         (76U)
-
-/** @brief PCC PORT E base address */
-#define PCC_PORTE_INDEX         (77U)
-
-/*******************************************************************************
- * I2C PCC Index Offsets
- ******************************************************************************/
-#define PCC_LPI2C0_INDEX                         102
-
-/*******************************************************************************
- * UART PCC Index Offsets
- ******************************************************************************/
-#define PCC_LPUART0_INDEX                        106
-#define PCC_LPUART1_INDEX                        107
-#define PCC_LPUART2_INDEX                        108
-
-#define PCC_FLEXCAN0_INDEX                       36
-#define PCC_FLEXCAN1_INDEX                       37
-#define PCC_FLEXCAN2_INDEX                       43
-#define PCC_FTM3_INDEX                           38
-#define PCC_ADC1_INDEX                           39
+/**
+ * @brief Peripheral index enumeration for easy access
+ * @note These values match S32K144.h PCC indices to avoid conflicts
+ * @warning Do not use enum if S32K144.h is included (use #defines instead)
+ */
+#ifndef S32K144_H_  /* Only define if S32K144.h is not included */
+typedef enum {
+PCC_FTFC_INDEX                           = 11,
+PCC_DMAMUX_INDEX                         = 11,
+PCC_FlexCAN0_INDEX                       = 11,
+PCC_FlexCAN1_INDEX                       = 11,
+PCC_FTM3_INDEX                           = 11,
+PCC_ADC1_INDEX                           = 11,
+PCC_FlexCAN2_INDEX                       = 11,
+PCC_LPSPI0_INDEX                         = 11,
+PCC_LPSPI1_INDEX                         = 11,
+PCC_LPSPI2_INDEX                         = 11,
+PCC_PDB1_INDEX                           = 11,
+PCC_CRC_INDEX                            = 11,
+PCC_PDB0_INDEX                           = 11,
+PCC_LPIT_INDEX                           = 11,
+PCC_FTM0_INDEX                           = 11,
+PCC_FTM1_INDEX                           = 11,
+PCC_FTM2_INDEX                           = 11,
+PCC_ADC0_INDEX                           = 11,
+PCC_RTC_INDEX                            = 11,
+PCC_LPTMR0_INDEX                         = 11,
+PCC_PORTA_INDEX                          = 11,
+PCC_PORTB_INDEX                          = 11,
+PCC_PORTC_INDEX                          = 11,
+PCC_PORTD_INDEX                          = 11,
+PCC_PORTE_INDEX                          = 11,
+PCC_FlexIO_INDEX                         = 11,
+PCC_EWM_INDEX                            = 11,
+PCC_LPI2C0_INDEX                         = 112,
+PCC_LPUART0_INDEX                        = 116,
+PCC_LPUART1_INDEX                        = 117,
+PCC_LPUART2_INDEX                        = 118,
+PCC_CMP0_INDEX                           = 115
+} pcc_peripheral_index_t;
+#endif /* S32K144_H_ */
 
 
 

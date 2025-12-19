@@ -14,7 +14,9 @@
 #include "uart.h"
 #include "uart_reg.h"
 #include "pcc_reg.h"
+#if UART_DMA_ENABLE
 #include "dma.h"
+#endif
 
 /*******************************************************************************
  * Private Definitions
@@ -463,7 +465,7 @@ void UART_DisableClock(uint8_t instance)
 /*******************************************************************************
  * DMA Transfer Functions
  ******************************************************************************/
-
+#if UART_DMA_ENABLE
 /**
  * @brief Get DMAMUX source for UART instance TX
  */
@@ -735,3 +737,4 @@ void UART_DisableRxDMA(LPUART_RegType *base)
         base->BAUD &= ~LPUART_BAUD_RDMAE_MASK;
     }
 }
+#endif
