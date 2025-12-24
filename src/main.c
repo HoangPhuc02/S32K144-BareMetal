@@ -53,6 +53,10 @@
 #define LED_GREEN_GPIO_PORT     GPIO_PORT_D
 #define LED_GREEN_PIN           (16U)           /* Green LED - RX indicator */
 
+#define LED_BLUE_PORT          PORT_D
+#define LED_BLUE_GPIO_PORT     GPIO_PORT_D
+#define LED_BLUE_PIN           (0U)           /* Blue LED - RX indicator */
+
 /* CAN Configuration */
 #define CAN_GPIO_PORT           GPIO_PORT_E
 #define CAN_TX_PIN              (5U)
@@ -61,6 +65,8 @@
 #define CAN_TX_MAILBOX          (8U)
 #define CAN_RX_MAILBOX          (16U)
 #define CAN_BAUDRATE            (500000U)       /* 500 kbps */
+
+#define TESTING_CAN_LOOPBACK    STD_ON
 
 /* UART Configuration */
 #define UART_PORT               PORT_C
@@ -89,7 +95,10 @@ typedef enum {
  * Global Variables
  ******************************************************************************/
 
+#if (TESTING_CAN_LOOPBACK == STD_OFF)
 static volatile operation_mode_t g_currentMode = MODE_TX;
+#endif
+
 static volatile bool g_buttonTxPressed = false;
 static volatile bool g_buttonModePressed = false;
 static volatile uint32_t g_messageCounter = 0;
@@ -97,14 +106,7 @@ static volatile bool g_messageReceived = false;
 
 /* UART instance for printf replacement */
 static LPUART_RegType *g_uartInstance = LPUART1;
-static 	UART_Config_t config = {
-		.baudRate = 9600,
-		.parity = UART_PARITY_DISABLED,
-		.stopBits = UART_ONE_STOP_BIT,
-		.dataBits = UART_8_DATA_BITS,
-		.enableRx = true,
-		.enableTx = true
-	};
+
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
@@ -159,7 +161,10 @@ void CAN0_ORed_0_15_MB_IRQHandler(void)
     can_message_t rxMsg;
     
     /* Only process in RX mode */
-    if (g_currentMode == MODE_RX) {
+    #if (TESTING_CAN_LOOPBACK == STD_OFF)
+    if (g_currentMode == MODE_RX) 
+    #endif
+    {
         /* Try to receive message */
         if (CAN_Receive(0, CAN_RX_MAILBOX, &rxMsg) == STATUS_SUCCESS) {
             /* Toggle Green LED */
@@ -186,7 +191,10 @@ void CAN0_ORed_16_31_MB_IRQHandler(void)
     can_message_t rxMsg;
 
     /* Only process in RX mode */
-    if (g_currentMode == MODE_RX) {
+    #if (TESTING_CAN_LOOPBACK == STD_OFF)
+    if (g_currentMode == MODE_RX) 
+    #endif
+    {
         /* Try to receive message */
         if (CAN_Receive(0, CAN_RX_MAILBOX, &rxMsg) == STATUS_SUCCESS) {
             /* Toggle Green LED */
@@ -232,9 +240,18 @@ static void InitClocks(void)
  */
 static void InitUART(void)
 {
-    PORT_SetPinMux(UART_PORT, UART_RX_PIN, PORT_MUX_ALT2);  /* CAN0_RX */
-    PORT_SetPinMux(UART_PORT, UART_TX_PIN, PORT_MUX_ALT2);  /* CAN0_TX */
-    /* Initialize LPUART1 on PTC6/PTC7 at 115200 baud */
+    PORT_SetPinMux(UART_PORT, UART_RX_PIN, PORT_MUX_ALT2);  /* UART1_RX */
+    PORT_SetPinMux(UART_PORT, UART_TX_PIN, PORT_MUX_ALT2);  /* UART1_TX */
+    /* Initialize LPUART1 on PTC6/PTC7 at 90600 baud */
+
+    UART_Config_t config = {
+		.baudRate = 9600,
+		.parity = UART_PARITY_DISABLED,
+		.stopBits = UART_ONE_STOP_BIT,
+		.dataBits = UART_8_DATA_BITS,
+		.enableRx = true,
+		.enableTx = true
+	};
 	UART_Init(g_uartInstance,
     			&config,              /* PORT for TX/RX pins */
     			8000000);  /* No parity */
@@ -274,6 +291,11 @@ static void InitLEDs(void)
     PORT_SetPinMux(LED_GREEN_GPIO_PORT, LED_GREEN_PIN, PORT_MUX_GPIO);
     GPIO_SetPinDirection(LED_GREEN_GPIO_PORT, LED_GREEN_PIN, GPIO_DIR_OUTPUT);
     GPIO_WritePin(LED_GREEN_GPIO_PORT, LED_GREEN_PIN, 1U);  /* Off (active low) */
+
+    /* Configure Blue LED pin as GPIO */
+    PORT_SetPinMux(LED_BLUE_GPIO_PORT, LED_BLUE_PIN, PORT_MUX_GPIO);
+    GPIO_SetPinDirection(LED_BLUE_GPIO_PORT, LED_BLUE_PIN, GPIO_DIR_OUTPUT);
+    GPIO_WritePin(LED_BLUE_GPIO_PORT, LED_BLUE_PIN, 1U);  /* Off (active low) */
 }
 
 /**
@@ -324,15 +346,16 @@ static void InitCAN(void)
     PORT_SetPinMux(CAN_GPIO_PORT, CAN_TX_PIN, PORT_MUX_ALT5);  /* CAN0_TX */
     
     /* Configure CAN */
-//    can_config_t canConfig = {
-//        .instance = 0,
-//        .clockSource = CAN_CLK_SRC_SOSCDIV2,    /* 40 MHz */
-//        .baudRate = CAN_BAUDRATE,                /* 500 kbps */
-//        .mode = CAN_MODE_NORMAL,                 /* Normal mode for actual communication */
-//        .enableSelfReception = false,
-//        .useRxFifo = false
-//    };
-
+    #if (TESTING_CAN_LOOPBACK == STD_OFF)
+    can_config_t canConfig = {
+       .instance = 0,
+       .clockSource = CAN_CLK_SRC_SOSCDIV2,    /* 40 MHz */
+       .baudRate = CAN_BAUDRATE,                /* 500 kbps */
+       .mode = CAN_MODE_NORMAL,                 /* Normal mode for actual communication */
+       .enableSelfReception = false,
+       .useRxFifo = false
+   };
+    #else
     can_config_t canConfig = {
         .instance = 0,
         .clockSource = CAN_CLK_SRC_SOSCDIV2,    	/* 8 MHz */
@@ -341,6 +364,7 @@ static void InitCAN(void)
         .enableSelfReception = true,
         .useRxFifo = false
     };
+    #endif
     
     status = CAN_Init(&canConfig);
     if (status != STATUS_SUCCESS) {
@@ -427,6 +451,7 @@ static void SendCANMessage(void)
  */
 static void UpdateModeLEDs(void)
 {
+#if (TESTING_CAN_LOOPBACK == STD_OFF)
     if (g_currentMode == MODE_TX) {
         /* TX mode: Red LED solid ON, Green LED OFF */
         GPIO_WritePin(LED_RED_GPIO_PORT, LED_RED_PIN, 0U);    /* On */
@@ -436,6 +461,11 @@ static void UpdateModeLEDs(void)
         GPIO_WritePin(LED_RED_GPIO_PORT, LED_RED_PIN, 1U);    /* Off */
         GPIO_WritePin(LED_GREEN_GPIO_PORT, LED_GREEN_PIN, 0U); /* On */
     }
+#else
+    GPIO_WritePin(LED_BLUE_GPIO_PORT, LED_BLUE_PIN, 0U);    /* On */
+    GPIO_WritePin(LED_RED_GPIO_PORT, LED_RED_PIN, 1U);    /* Off */
+    GPIO_WritePin(LED_GREEN_GPIO_PORT, LED_GREEN_PIN, 1U); /* Off */
+#endif
 }
 
 /**
@@ -497,6 +527,7 @@ int main(void)
     UART_printf("===========================================\n\n");
     
     /* Set initial mode to TX */
+#if (TESTING_CAN_LOOPBACK == STD_OFF)
     g_currentMode = MODE_TX;
     UpdateModeLEDs();
     if(g_currentMode == MODE_TX)
@@ -507,16 +538,21 @@ int main(void)
     else
     {
         UART_printf("Current Mode: RX\n");
-        UART_printf("Press SW3 to switch mode, SW2 to send (TX mode)\n\n");
+        UART_printf("Press SW2 to send (TX mode)\n\n");
     }
-
+#else
+    UpdateModeLEDs();
+    UART_printf("Current Mode: LOOPBACK\n");
+    UART_printf("Press SW3 to switch mode, SW2 to send\n\n");
+#endif
     
     /* Main loop */
     while (1) {
         /* Handle Mode button press */
         if (g_buttonModePressed) {
             g_buttonModePressed = false;
-            
+			#if (TESTING_CAN_LOOPBACK == STD_OFF)
+
             /* Toggle mode */
             if (g_currentMode == MODE_TX) {
                 g_currentMode = MODE_RX;
@@ -533,10 +569,19 @@ int main(void)
             
             /* Debounce delay */
             SimpleDelay(DEBOUNCE_DELAY_MS);
+			#else
+            UART_printf("\nIn LoopBack mode can't change Mode <<<\n");
+            UART_printf("Press SW2 to send messages\n\n");
+			#endif
         }
         
         /* Handle TX button press (only in TX mode) */
-        if (g_buttonTxPressed && g_currentMode == MODE_TX) {
+		#if (TESTING_CAN_LOOPBACK == STD_OFF)
+        	if (g_buttonTxPressed && g_currentMode == MODE_TX)
+		#else
+        	if (g_buttonTxPressed)
+		#endif
+        {
             g_buttonTxPressed = false;
             
             /* Send CAN message */
@@ -552,3 +597,4 @@ int main(void)
     
     return 0;
 }
+                                                                                  

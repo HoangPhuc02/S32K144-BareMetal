@@ -97,5 +97,12 @@
  * @}
  */ /* end of group Interrupt_vector_numbers_S32K144 */
 
+ /**
+  * 
+  */
+
+  #define STD_ON            1
+  #define STD_OFF           0
+
 
 #endif /* DEF_REG_H */
