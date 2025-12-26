@@ -153,23 +153,6 @@ typedef struct {
  * Clock Source Selection
  ******************************************************************************/
 
-/**
- * @brief CAN Clock Source Selection
- * @details Defines available clock sources for CAN peripheral.
- *          The selected clock source determines the CAN bit timing.
- *          Common clock frequencies:
- *          - SOSC DIV2: 8 MHz / 2 = 4 MHz (if 8 MHz crystal)
- *          - SIRC DIV2: 8 MHz / 2 = 4 MHz (internal slow clock)
- *          - FIRC DIV2: 48 MHz / 2 = 24 MHz (internal fast clock)
- *          - SPLL DIV2: 80 MHz / 2 = 40 MHz (if PLL configured for 80 MHz)
- */
-typedef enum {
-    CAN_CLK_SRC_SOSCDIV2 = 0U,  /**< System Oscillator DIV2 clock */
-	/* Note: Bus clock selection requires specific PCC configuration */
-    CAN_CLK_SRC_BUSCLOCK = 1U,  /**< Bus Internal Reference Clock DIV2 */
-} can_clk_src_t;
-
-
 /*******************************************************************************
  * CAN Register Bit Fields
  ******************************************************************************/

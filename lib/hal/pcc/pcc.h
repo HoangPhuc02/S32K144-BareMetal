@@ -42,6 +42,16 @@ typedef enum {
 } pcc_clock_source_t;
 
 /**
+ * @brief CAN clock source selection
+ * @details Clock sources available for CAN peripheral
+ *          CAN peripheral can use oscillator or bus clock
+ */
+typedef enum {
+    CAN_CLK_SRC_SOSCDIV2 = 0U,  /**< System Oscillator DIV2 clock (typically 4 MHz) */
+    CAN_CLK_SRC_BUSCLOCK = 1U   /**< Bus clock (typically 40 MHz) */
+} can_clk_src_t;
+
+/**
  * @brief Peripheral clock configuration structure
  */
 typedef struct {
@@ -165,6 +175,30 @@ bool PCC_Init(void);
  * @warning Requires SCG module to be properly initialized
  */
 uint32_t PCC_GetPeripheralClockFreq(uint8_t peripheral);
+
+/**
+ * @brief Enable CAN peripheral clock with clock source selection
+ * @param[in] instance CAN instance number (0, 1, or 2)
+ * @param[in] clockSource CAN clock source (SOSCDIV2 or BUSCLOCK)
+ * @return true if successful, false if failed
+ * 
+ * @note This function configures PCC for CAN peripheral
+ *       The CTRL1[CLKSRC] bit in CAN module must be configured separately
+ * 
+ * @par Example:
+ * @code
+ * // Enable CAN0 with bus clock
+ * PCC_EnableCANClock(0, CAN_CLK_SRC_BUSCLOCK);
+ * @endcode
+ */
+bool PCC_EnableCANClock(uint8_t instance, can_clk_src_t clockSource);
+
+/**
+ * @brief Disable CAN peripheral clock
+ * @param[in] instance CAN instance number (0, 1, or 2)
+ * @return true if successful, false if failed
+ */
+bool PCC_DisableCANClock(uint8_t instance);
 
 #endif /* PCC_H */
 

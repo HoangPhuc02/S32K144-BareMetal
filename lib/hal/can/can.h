@@ -59,6 +59,7 @@
  * Includes
  ******************************************************************************/
 #include "can_reg.h"
+#include "pcc.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -992,5 +993,57 @@ status_t CAN_SetupTxMailbox(uint8_t instance, uint8_t mbIndex);
  */
 status_t CAN_SetupRxMailbox(uint8_t instance, uint8_t mbIndex, 
                             uint32_t id, can_id_type_t idType, uint32_t mask);
+
+/**
+ * @brief Set CAN operating mode
+ * @details Changes the operating mode of the CAN controller dynamically.
+ *          This function can be called while CAN is running to switch between modes.
+ * 
+ * @param[in] instance CAN instance number (0-2)
+ * @param[in] mode Operating mode to set:
+ *                 - CAN_MODE_NORMAL: Normal operation for standard communication
+ *                 - CAN_MODE_LOOPBACK: Internal loopback mode for self-test
+ *                 - CAN_MODE_LISTEN_ONLY: Bus monitoring without ACK transmission
+ * 
+ * @return status_t
+ *         - STATUS_SUCCESS: Mode changed successfully
+ *         - STATUS_INVALID_PARAM: Invalid instance or mode
+ *         - STATUS_NOT_INITIALIZED: CAN not initialized
+ *         - STATUS_TIMEOUT: Failed to enter/exit freeze mode
+ * 
+ * @note - The function temporarily enters freeze mode to change the mode
+ *       - All pending transmissions should be completed before mode change
+ *       - Recommended to abort pending TX and wait for completion first
+ * 
+ * @par Mode Descriptions:
+ * - NORMAL: Standard CAN operation, transmits and receives messages normally
+ * - LOOPBACK: TX messages are received internally without bus transmission
+ *             Useful for self-test without affecting bus
+ * - LISTEN_ONLY: Node monitors bus without transmitting (including ACK)
+ *                Used for bus analysis and monitoring
+ * 
+ * @par Example:
+ * @code
+ * // Initialize in normal mode
+ * can_config_t config = {
+ *     .instance = 0,
+ *     .clockSource = CAN_CLK_SRC_BUSCLOCK,
+ *     .baudRate = 500000,
+ *     .mode = CAN_MODE_NORMAL,
+ *     .enableSelfReception = false,
+ *     .useRxFifo = false
+ * };
+ * CAN_Init(&config);
+ * 
+ * // Switch to loopback mode for testing
+ * CAN_SetOperatingMode(0, CAN_MODE_LOOPBACK);
+ * 
+ * // Run self-tests...
+ * 
+ * // Switch back to normal mode
+ * CAN_SetOperatingMode(0, CAN_MODE_NORMAL);
+ * @endcode
+ */
+status_t CAN_SetOperatingMode(uint8_t instance, can_mode_t mode);
 
 #endif /* CAN_H */

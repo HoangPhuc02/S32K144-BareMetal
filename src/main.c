@@ -271,9 +271,9 @@ static void UART_printf(const char *format, ...)
     int len = vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
     
+    /* Send only actual formatted length, not entire buffer */
     if (len > 0 && len < (int)sizeof(buffer)) {
-//        LPUART_transmit_string(g_uartInstance, buffer);
-        UART_SendBlocking(g_uartInstance,(const uint8_t*) buffer, sizeof(buffer));
+        UART_SendBlocking(g_uartInstance, (const uint8_t*)buffer, (uint32_t)len);
     }
 }
 
@@ -597,4 +597,3 @@ int main(void)
     
     return 0;
 }
-                                                                                  

@@ -147,6 +147,49 @@ bool PCC_SetPeripheralClockSource(uint8_t peripheral, pcc_clock_source_t source)
     return true;
 }
 
+bool PCC_EnableCANClock(uint8_t instance, can_clk_src_t clockSource)
+{
+    uint8_t pccIndex;
+    pcc_config_t config;
+    
+    /* Determine PCC index for CAN instance */
+    if (instance == 0U) {
+        pccIndex = PCC_FlexCAN0_INDEX;
+    } else if (instance == 1U) {
+        pccIndex = PCC_FlexCAN1_INDEX;
+    } else if (instance == 2U) {
+        pccIndex = PCC_FlexCAN2_INDEX;
+    } else {
+        return false;  /* Invalid instance */
+    }
+    
+    /* Configure peripheral clock */
+    config.clockSource = (clockSource == CAN_CLK_SRC_BUSCLOCK) ? PCC_CLK_SRC_FIRC_DIV2 : PCC_CLK_SRC_SOSC_DIV2;
+    config.enableClock = true;
+    config.divider = 0U;  /* No division */
+    config.fractionalDivider = false;
+    
+    return PCC_SetPeripheralClockConfig(pccIndex, &config);
+}
+
+bool PCC_DisableCANClock(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    /* Determine PCC index for CAN instance */
+    if (instance == 0U) {
+        pccIndex = PCC_FlexCAN0_INDEX;
+    } else if (instance == 1U) {
+        pccIndex = PCC_FlexCAN1_INDEX;
+    } else if (instance == 2U) {
+        pccIndex = PCC_FlexCAN2_INDEX;
+    } else {
+        return false;  /* Invalid instance */
+    }
+    
+    return PCC_DisablePeripheralClock(pccIndex);
+}
+
 pcc_clock_source_t PCC_GetPeripheralClockSource(uint8_t peripheral)
 {
     if (!PCC_IsValidPeripheralIndex(peripheral)) {

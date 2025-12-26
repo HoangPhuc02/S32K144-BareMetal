@@ -12,7 +12,7 @@
  * Includes
  ******************************************************************************/
 #include "can.h"
-#include "pcc_reg.h"
+#include "pcc.h"
 #include <stddef.h>
 #include <string.h>
 
@@ -206,14 +206,8 @@ status_t CAN_Deinit(uint8_t instance)
     /* Disable module */
     base->MCR |= CAN_MCR_MDIS_MASK;
     
-    /* Disable clock */
-    if (instance == 0U) {
-    	PCC->PCCn[PCC_FlexCAN0_INDEX] &=~ PCC_PCCn_CGC_MASK;
-    } else if (instance == 1U) {
-    	PCC->PCCn[PCC_FlexCAN1_INDEX] &=~ PCC_PCCn_CGC_MASK;
-    } else {
-    	PCC->PCCn[PCC_FlexCAN2_INDEX] &=~ PCC_PCCn_CGC_MASK;
-    }
+    /* Disable clock through PCC module */
+    PCC_DisableCANClock(instance);
 
     /* Clear initialized flag */
     s_canInitialized[instance] = false;
@@ -786,36 +780,29 @@ static status_t CAN_SoftReset(CAN_Type *base)
 
 /**
  * @brief Enable CAN peripheral clock
+ * @details Enables clock through PCC module and configures CAN clock source
  */
 static void CAN_EnableClock(uint8_t instance, can_clk_src_t clockSource)
 {
-//	DEV_ASSERT(instance > 2U);
     CAN_Type *base;
     
     base = s_canBases[instance];
-    /* Get PCC register address */
-    if (instance == 0U) {
-        PCC->PCCn[PCC_FlexCAN0_INDEX] |= PCC_PCCn_CGC_MASK;
-    } else if (instance == 1U) {
-    	PCC->PCCn[PCC_FlexCAN1_INDEX] |= PCC_PCCn_CGC_MASK;
-    } else {
-    	PCC->PCCn[PCC_FlexCAN2_INDEX] |= PCC_PCCn_CGC_MASK;
-    }
+    
+    /* Enable CAN clock through PCC module */
+    PCC_EnableCANClock(instance, clockSource);
 
     /* MDIS=1: Disable module before selecting clock */
-    base->MCR 	|= CAN_MCR_MDIS_MASK; 
+    base->MCR |= CAN_MCR_MDIS_MASK; 
 
-    /* Select clock source in CTRL1*/ 
-    if(clockSource == CAN_CLK_SRC_SOSCDIV2){
-    	base->CTRL1 &=~ CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator (8 MHz) */
-    }else{
-    	base->CTRL1 |= CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = oscillator (8 MHz) */
+    /* Select clock source in CTRL1 register */ 
+    if (clockSource == CAN_CLK_SRC_SOSCDIV2) {
+        base->CTRL1 &= ~CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=0: Clock Source = oscillator */
+    } else {
+        base->CTRL1 |= CAN_CTRL1_CLKSRC_MASK; /* CLKSRC=1: Clock Source = bus clock */
     }
 
-    /* MDIS=0; Enable module config. (Sets FRZ, HALT)*/
-    base->MCR 	&= ~CAN_MCR_MDIS_MASK; 
-
-
+    /* MDIS=0: Enable module config. (Sets FRZ, HALT) */
+    base->MCR &= ~CAN_MCR_MDIS_MASK;
 }
 
 /**
@@ -839,6 +826,55 @@ static void CAN_InitMessageBuffers(CAN_Type *base)
     /* Clear all interrupt flags 
         This reg is w1c*/
     base->IFLAG1 = 0xFFFFFFFFUL;
+}
+
+/**
+ * @brief Set CAN operating mode
+ */
+status_t CAN_SetOperatingMode(uint8_t instance, can_mode_t mode)
+{
+    CAN_Type *base;
+    status_t status;
+    
+    /* Validate parameters */
+    if (instance >= CAN_INSTANCE_COUNT) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    if (!s_canInitialized[instance]) {
+        return STATUS_NOT_INITIALIZED;
+    }
+    
+    if (mode > CAN_MODE_LISTEN_ONLY) {
+        return STATUS_INVALID_PARAM;
+    }
+    
+    base = s_canBases[instance];
+    
+    /* Enter freeze mode to change configuration */
+    status = CAN_EnterFreezeMode(base);
+    if (status != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    /* Clear existing mode bits */
+    base->CTRL1 &= ~(CAN_CTRL1_LPB_MASK | CAN_CTRL1_LOM_MASK);
+    
+    /* Set new operating mode */
+    if (mode == CAN_MODE_LOOPBACK) {
+        base->CTRL1 |= CAN_CTRL1_LPB_MASK;  /* Enable loopback mode */
+    } else if (mode == CAN_MODE_LISTEN_ONLY) {
+        base->CTRL1 |= CAN_CTRL1_LOM_MASK;  /* Enable listen-only mode */
+    }
+    /* For CAN_MODE_NORMAL, both bits remain 0 */
+    
+    /* Exit freeze mode */
+    status = CAN_ExitFreezeMode(base);
+    if (status != STATUS_SUCCESS) {
+        return STATUS_TIMEOUT;
+    }
+    
+    return STATUS_SUCCESS;
 }
 
 /**
