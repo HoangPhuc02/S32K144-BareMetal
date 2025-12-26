@@ -21,6 +21,8 @@
  ******************************************************************************/
 #include "pcc.h"
 #include "pcc_reg.h"
+#include "scg.h"
+#include "scg_reg.h"
 #include <stddef.h>
 
 /*******************************************************************************
@@ -274,24 +276,31 @@ uint32_t PCC_GetPeripheralClockFreq(uint8_t peripheral)
     pcc_clock_source_t source = PCC_GetPeripheralClockSource(peripheral);
     
     uint32_t sourceFreq = 0U;
+    scg_clock_frequencies_t freqs;
     
-    /* Get source frequency from SCG */
-    /* Note: This requires SCG driver to be properly initialized */
-    /* For now, we'll return typical frequencies */
-    /* In a real implementation, you would call SCG functions */
+    /* Get actual frequencies from SCG module */
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        return 0U;  /* SCG not properly initialized */
+    }
     
+    /* Get source frequency based on PCC clock source selection */
+    /* PCC uses DIV2 outputs from SCG */
     switch (source) {
         case PCC_CLK_SRC_SOSC_DIV2:
-            sourceFreq = 4000000U;  /* Typical 8MHz SOSC / 2 */
+            /* SOSCDIV2 = SOSC / DIV2 (configured in SCG) */
+            sourceFreq = PCC_GetSoscDiv2Freq();
             break;
         case PCC_CLK_SRC_SIRC_DIV2:
-            sourceFreq = 4000000U;  /* 8MHz SIRC / 2 */
+            /* SIRCDIV2 = SIRC / DIV2 (configured in SCG) */
+            sourceFreq = PCC_GetSircDiv2Freq();
             break;
         case PCC_CLK_SRC_FIRC_DIV2:
-            sourceFreq = 24000000U; /* 48MHz FIRC / 2 */
+            /* FIRCDIV2 = FIRC / DIV2 (configured in SCG) */
+            sourceFreq = PCC_GetFircDiv2Freq();
             break;
         case PCC_CLK_SRC_SPLL_DIV2:
-            sourceFreq = 80000000U; /* Typical 160MHz SPLL / 2 */
+            /* SPLLDIV2 = SPLL / DIV2 (configured in SCG) */
+            sourceFreq = PCC_GetSpllDiv2Freq();
             break;
         case PCC_CLK_SRC_OFF:
         default:
@@ -299,7 +308,7 @@ uint32_t PCC_GetPeripheralClockFreq(uint8_t peripheral)
             break;
     }
     
-    /* Apply divider if configured */
+    /* Apply PCC divider if configured */
     uint32_t regValue = PCC->PCCn[peripheral];
     uint8_t divider = (uint8_t)((regValue & PCC_PCCn_PCD_MASK) >> PCC_PCCn_PCD_SHIFT);
     bool fractional = ((regValue & PCC_PCCn_FRAC_MASK) != 0U);
@@ -307,7 +316,7 @@ uint32_t PCC_GetPeripheralClockFreq(uint8_t peripheral)
     if (divider > 0U) {
         if (fractional) {
             /* Fractional divider: divide by (divider + 1 + 0.5) */
-            /* For simplicity, we'll approximate */
+            /* Multiply by 2 first to avoid fraction */
             sourceFreq = (sourceFreq * 2U) / ((divider + 1U) * 2U + 1U);
         } else {
             /* Integer divider: divide by (divider + 1) */
@@ -316,6 +325,201 @@ uint32_t PCC_GetPeripheralClockFreq(uint8_t peripheral)
     }
     
     return sourceFreq;
+}
+
+/*******************************************************************************
+ * Clock Frequency Query Functions (using SCG)
+ ******************************************************************************/
+
+uint32_t PCC_GetSoscDiv2Freq(void)
+{
+    scg_clock_frequencies_t freqs;
+    
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        return 0U;
+    }
+    
+    /* Read SOSCDIV2 divider from SCG register */
+    uint32_t div2 = (SCG->SOSCDIV & SCG_SOSCDIV_SOSCDIV2_MASK) >> SCG_SOSCDIV_SOSCDIV2_SHIFT;
+    
+    if (div2 == 0U) {
+        return 0U;  /* DIV2 output disabled */
+    }
+    
+    /* DIV2 value: 0=disabled, 1=/1, 2=/2, 3=/4, 4=/8, 5=/16, 6=/32, 7=/64 */
+    return freqs.soscClk >> (div2 - 1U);
+}
+
+uint32_t PCC_GetSircDiv2Freq(void)
+{
+    scg_clock_frequencies_t freqs;
+    
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        return 0U;
+    }
+    
+    /* Read SIRCDIV2 divider from SCG register */
+    uint32_t div2 = (SCG->SIRCDIV & SCG_SIRCDIV_SIRCDIV2_MASK) >> SCG_SIRCDIV_SIRCDIV2_SHIFT;
+    
+    if (div2 == 0U) {
+        return 0U;  /* DIV2 output disabled */
+    }
+    
+    return freqs.sircClk >> (div2 - 1U);
+}
+
+uint32_t PCC_GetFircDiv2Freq(void)
+{
+    scg_clock_frequencies_t freqs;
+    
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        return 0U;
+    }
+    
+    /* Read FIRCDIV2 divider from SCG register */
+    uint32_t div2 = (SCG->FIRCDIV & SCG_FIRCDIV_FIRCDIV2_MASK) >> SCG_FIRCDIV_FIRCDIV2_SHIFT;
+    
+    if (div2 == 0U) {
+        return 0U;  /* DIV2 output disabled */
+    }
+    
+    return freqs.fircClk >> (div2 - 1U);
+}
+
+uint32_t PCC_GetSpllDiv2Freq(void)
+{
+    scg_clock_frequencies_t freqs;
+    
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        return 0U;
+    }
+    
+    /* Read SPLLDIV2 divider from SCG register */
+    uint32_t div2 = (SCG->SPLLDIV & SCG_SPLLDIV_SPLLDIV2_MASK) >> SCG_SPLLDIV_SPLLDIV2_SHIFT;
+    
+    if (div2 == 0U) {
+        return 0U;  /* DIV2 output disabled */
+    }
+    
+    return freqs.spllClk >> (div2 - 1U);
+}
+
+/*******************************************************************************
+ * Communication Peripheral Clock Helpers
+ ******************************************************************************/
+
+uint32_t PCC_GetLpuartClockFreq(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    switch (instance) {
+        case 0U:
+            pccIndex = PCC_LPUART0_INDEX;
+            break;
+        case 1U:
+            pccIndex = PCC_LPUART1_INDEX;
+            break;
+        case 2U:
+            pccIndex = PCC_LPUART2_INDEX;
+            break;
+        default:
+            return 0U;
+    }
+    
+    return PCC_GetPeripheralClockFreq(pccIndex);
+}
+
+uint32_t PCC_GetFlexCanClockFreq(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    switch (instance) {
+        case 0U:
+            pccIndex = PCC_FlexCAN0_INDEX;
+            break;
+        case 1U:
+            pccIndex = PCC_FlexCAN1_INDEX;
+            break;
+        case 2U:
+            pccIndex = PCC_FlexCAN2_INDEX;
+            break;
+        default:
+            return 0U;
+    }
+    
+    return PCC_GetPeripheralClockFreq(pccIndex);
+}
+
+uint32_t PCC_GetLpspiClockFreq(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    switch (instance) {
+        case 0U:
+            pccIndex = PCC_LPSPI0_INDEX;
+            break;
+        case 1U:
+            pccIndex = PCC_LPSPI1_INDEX;
+            break;
+        case 2U:
+            pccIndex = PCC_LPSPI2_INDEX;
+            break;
+        default:
+            return 0U;
+    }
+    
+    return PCC_GetPeripheralClockFreq(pccIndex);
+}
+
+uint32_t PCC_GetLpi2cClockFreq(uint8_t instance)
+{
+    if (instance != 0U) {
+        return 0U;  /* S32K144 only has LPI2C0 */
+    }
+    
+    return PCC_GetPeripheralClockFreq(PCC_LPI2C0_INDEX);
+}
+
+uint32_t PCC_GetFtmClockFreq(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    switch (instance) {
+        case 0U:
+            pccIndex = PCC_FTM0_INDEX;
+            break;
+        case 1U:
+            pccIndex = PCC_FTM1_INDEX;
+            break;
+        case 2U:
+            pccIndex = PCC_FTM2_INDEX;
+            break;
+        case 3U:
+            pccIndex = PCC_FTM3_INDEX;
+            break;
+        default:
+            return 0U;
+    }
+    
+    return PCC_GetPeripheralClockFreq(pccIndex);
+}
+
+uint32_t PCC_GetAdcClockFreq(uint8_t instance)
+{
+    uint8_t pccIndex;
+    
+    switch (instance) {
+        case 0U:
+            pccIndex = PCC_ADC0_INDEX;
+            break;
+        case 1U:
+            pccIndex = PCC_ADC1_INDEX;
+            break;
+        default:
+            return 0U;
+    }
+    
+    return PCC_GetPeripheralClockFreq(pccIndex);
 }
 
 /*******************************************************************************

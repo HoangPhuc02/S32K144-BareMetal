@@ -200,6 +200,97 @@ bool PCC_EnableCANClock(uint8_t instance, can_clk_src_t clockSource);
  */
 bool PCC_DisableCANClock(uint8_t instance);
 
+/*******************************************************************************
+ * Clock Frequency Query Functions (using SCG)
+ ******************************************************************************/
+
+/**
+ * @brief Get SOSC DIV2 clock frequency
+ * @return SOSCDIV2 frequency in Hz, 0 if disabled
+ * @note Reads actual divider from SCG registers
+ */
+uint32_t PCC_GetSoscDiv2Freq(void);
+
+/**
+ * @brief Get SIRC DIV2 clock frequency
+ * @return SIRCDIV2 frequency in Hz, 0 if disabled
+ */
+uint32_t PCC_GetSircDiv2Freq(void);
+
+/**
+ * @brief Get FIRC DIV2 clock frequency
+ * @return FIRCDIV2 frequency in Hz, 0 if disabled
+ */
+uint32_t PCC_GetFircDiv2Freq(void);
+
+/**
+ * @brief Get SPLL DIV2 clock frequency
+ * @return SPLLDIV2 frequency in Hz, 0 if disabled
+ */
+uint32_t PCC_GetSpllDiv2Freq(void);
+
+/*******************************************************************************
+ * Communication Peripheral Clock Helpers
+ ******************************************************************************/
+
+/**
+ * @brief Get LPUART functional clock frequency
+ * @param[in] instance LPUART instance (0, 1, or 2)
+ * @return Clock frequency in Hz, 0 if error
+ * 
+ * @note Use this to calculate LPUART baudrate dividers
+ * 
+ * @par Example (calculating UART baudrate):
+ * @code
+ * uint32_t clkFreq = PCC_GetLpuartClockFreq(0);
+ * uint32_t sbr = clkFreq / (baudrate * (osr + 1));
+ * @endcode
+ */
+uint32_t PCC_GetLpuartClockFreq(uint8_t instance);
+
+/**
+ * @brief Get FlexCAN functional clock frequency  
+ * @param[in] instance CAN instance (0, 1, or 2)
+ * @return Clock frequency in Hz, 0 if error
+ * 
+ * @note Use this to calculate CAN bit timing parameters
+ * 
+ * @par Example (calculating CAN baudrate):
+ * @code
+ * uint32_t clkFreq = PCC_GetFlexCanClockFreq(0);
+ * // prescaler = clkFreq / (baudrate * numTimeQuanta)
+ * @endcode
+ */
+uint32_t PCC_GetFlexCanClockFreq(uint8_t instance);
+
+/**
+ * @brief Get LPSPI functional clock frequency
+ * @param[in] instance LPSPI instance (0, 1, or 2)
+ * @return Clock frequency in Hz, 0 if error
+ */
+uint32_t PCC_GetLpspiClockFreq(uint8_t instance);
+
+/**
+ * @brief Get LPI2C functional clock frequency
+ * @param[in] instance LPI2C instance (0 only on S32K144)
+ * @return Clock frequency in Hz, 0 if error
+ */
+uint32_t PCC_GetLpi2cClockFreq(uint8_t instance);
+
+/**
+ * @brief Get FTM (FlexTimer) functional clock frequency
+ * @param[in] instance FTM instance (0, 1, 2, or 3)
+ * @return Clock frequency in Hz, 0 if error
+ */
+uint32_t PCC_GetFtmClockFreq(uint8_t instance);
+
+/**
+ * @brief Get ADC functional clock frequency
+ * @param[in] instance ADC instance (0 or 1)
+ * @return Clock frequency in Hz, 0 if error
+ */
+uint32_t PCC_GetAdcClockFreq(uint8_t instance);
+
 #endif /* PCC_H */
 
 /*******************************************************************************
