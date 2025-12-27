@@ -14,6 +14,7 @@
 | `systick_example.c` | 3+ | SysTick | Beginner | None |
 | `touch_sensor_example.c` | 5 | ADC0, GPIO | Intermediate | Touch plate, resistors |
 | `uart_example.c` | 9 | LPUART1 | Beginner | USB-Serial adapter |
+| `uart_dma_loopback_test.c` | 6 | LPUART1, eDMA | Intermediate | Wire PTC7->PTC6, PTD16 LED |
 
 ## ADC Examples
 
@@ -478,6 +479,42 @@ Data bits:    8
 Parity:       None
 Stop bits:    1
 Flow control: None
+```
+
+### File: `uart_dma_loopback_test.c`
+
+1. **Clock and Peripheral Init**
+   - Configures FIRC/SPLL clocks and PCC gates for DMA0, DMAMUX, LPUART1, PORTC/PTD16
+   - Initializes GPIO for the blue status LED (PTD16)
+
+2. **DMA Channel Pairing**
+   - DMAMUX channel 0 -> UART1 TX, channel 1 -> UART1 RX
+   - Enables request source 2:1 ratio, continuous link disabled for clarity
+
+3. **Loopback Execution**
+   - Transmits `LOOPBACK_TEST_BYTES` bytes via DMA using a static test pattern
+   - Concurrent RX DMA fills a buffer and triggers completion callbacks
+
+4. **Data Verification & Feedback**
+   - Compares received payload against expected data in the DMA callbacks
+   - Turns PTD16 LED on for pass, off for fail, and prints human-readable status to UART
+
+5. **Error Handling**
+   - Polls status flags for transfer halt/timeouts
+   - Provides simple retry path by re-arming DMA descriptors if verification fails
+
+**Pin Mapping:**
+```
+PTC7 -> LPUART1_TX (jumper to PTC6)
+PTC6 -> LPUART1_RX (jumper to PTC7)
+PTD16 -> Blue LED (status)
+```
+
+**Hardware Setup:**
+```
+1. Install jumper wire between PTC7 (TX) and PTC6 (RX)
+2. Connect board to PC via OpenSDA for console output
+3. Observe PTD16 LED (ON = pass, OFF = fail)
 ```
 
 ---

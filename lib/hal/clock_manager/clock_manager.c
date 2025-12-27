@@ -1,104 +1,66 @@
 #include "clock_manager.h"
-#include "S32K144.h"
+#include <string.h>
+#include "scg.h"
+#include "pcc.h"
 
 /*******************************************************************************
  * Private Variables
  ******************************************************************************/
-static uint32_t s_clockFrequencies[CLOCK_SRC_COUNT] = {0};
+static uint32_t s_clockFrequencies[CLOCK_NAME_COUNT] = {0};
+static bool s_clockCacheValid = false;
 
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
 
-static uint32_t GetSircFreq(void)
+static void ClockManager_UpdateScgFrequencies(void)
 {
-    /* SIRC: 8 MHz default */
-    return 8000000U;
-}
+    scg_clock_frequencies_t freqs;
 
-static uint32_t GetFircFreq(void)
-{
-    /* FIRC: 48 MHz default */
-    return 48000000U;
-}
-
-static uint32_t GetSoscFreq(void)
-{
-    /* SOSC: Depends on external crystal, typically 8 MHz */
-    return 8000000U;
-}
-
-static uint32_t GetSpllFreq(void)
-{
-    uint32_t srcFreq;
-    uint32_t prediv, mult;
-    
-    /* Get SPLL source (SOSC or FIRC) */
-    if ((SCG->SPLLCFG & SCG_SPLLCFG_SOURCE_MASK) == 0)
-    {
-        srcFreq = GetSoscFreq();
+    if (!SCG_GetClockFrequencies(&freqs)) {
+        memset(&freqs, 0, sizeof(freqs));
     }
-    else
-    {
-        srcFreq = GetFircFreq();
-    }
-    
-    /* Get PREDIV and MULT */
-    prediv = ((SCG->SPLLCFG & SCG_SPLLCFG_PREDIV_MASK) >> SCG_SPLLCFG_PREDIV_SHIFT) + 1U;
-    mult = ((SCG->SPLLCFG & SCG_SPLLCFG_MULT_MASK) >> SCG_SPLLCFG_MULT_SHIFT) + 16U;
-    
-    /* SPLL_CLK = (SRC_CLK / PREDIV) * MULT / 2 */
-    return (srcFreq / prediv) * mult / 2U;
+
+    s_clockFrequencies[CLOCK_NAME_CORE] = freqs.coreClk;
+    s_clockFrequencies[CLOCK_NAME_BUS]  = freqs.busClk;
+    s_clockFrequencies[CLOCK_NAME_SLOW] = freqs.slowClk;
+    s_clockFrequencies[CLOCK_NAME_SOSC] = freqs.soscClk;
+    s_clockFrequencies[CLOCK_NAME_SIRC] = freqs.sircClk;
+    s_clockFrequencies[CLOCK_NAME_FIRC] = freqs.fircClk;
+    s_clockFrequencies[CLOCK_NAME_SPLL] = freqs.spllClk;
+    s_clockFrequencies[CLOCK_NAME_FLASH] = freqs.busClk; /* Flash clock derives from bus clock */
 }
 
-static uint32_t GetSystemClockSource(void)
+static void ClockManager_UpdatePeripheralFrequencies(void)
 {
-    uint32_t scs = (SCG->CSR & SCG_CSR_SCS_MASK) >> SCG_CSR_SCS_SHIFT;
-    
-    switch (scs)
-    {
-        case 1: return GetSoscFreq();
-        case 2: return GetSircFreq();
-        case 3: return GetFircFreq();
-        case 6: return GetSpllFreq();
-        default: return 0;
-    }
+    s_clockFrequencies[CLOCK_NAME_FLEXCAN0] = PCC_GetFlexCanClockFreq(0U);
+    s_clockFrequencies[CLOCK_NAME_FLEXCAN1] = PCC_GetFlexCanClockFreq(1U);
+    s_clockFrequencies[CLOCK_NAME_FLEXCAN2] = PCC_GetFlexCanClockFreq(2U);
+
+    s_clockFrequencies[CLOCK_NAME_LPUART0] = PCC_GetLpuartClockFreq(0U);
+    s_clockFrequencies[CLOCK_NAME_LPUART1] = PCC_GetLpuartClockFreq(1U);
+    s_clockFrequencies[CLOCK_NAME_LPUART2] = PCC_GetLpuartClockFreq(2U);
+
+    s_clockFrequencies[CLOCK_NAME_LPSPI0] = PCC_GetLpspiClockFreq(0U);
+    s_clockFrequencies[CLOCK_NAME_LPSPI1] = PCC_GetLpspiClockFreq(1U);
+    s_clockFrequencies[CLOCK_NAME_LPSPI2] = PCC_GetLpspiClockFreq(2U);
+
+    s_clockFrequencies[CLOCK_NAME_LPI2C0] = PCC_GetLpi2cClockFreq(0U);
+
+    s_clockFrequencies[CLOCK_NAME_FTM0] = PCC_GetFtmClockFreq(0U);
+    s_clockFrequencies[CLOCK_NAME_FTM1] = PCC_GetFtmClockFreq(1U);
+    s_clockFrequencies[CLOCK_NAME_FTM2] = PCC_GetFtmClockFreq(2U);
+    s_clockFrequencies[CLOCK_NAME_FTM3] = PCC_GetFtmClockFreq(3U);
+
+    s_clockFrequencies[CLOCK_NAME_ADC0] = PCC_GetAdcClockFreq(0U);
+    s_clockFrequencies[CLOCK_NAME_ADC1] = PCC_GetAdcClockFreq(1U);
 }
 
-static void UpdateCoreClock(void)
+static void ClockManager_RefreshCache(void)
 {
-    uint32_t divCore = ((SCG->CSR & SCG_CSR_DIVCORE_MASK) >> SCG_CSR_DIVCORE_SHIFT) + 1U;
-    s_clockFrequencies[CLOCK_SRC_CORE] = GetSystemClockSource() / divCore;
-}
-
-static void UpdateBusClock(void)
-{
-    uint32_t divBus = ((SCG->CSR & SCG_CSR_DIVBUS_MASK) >> SCG_CSR_DIVBUS_SHIFT) + 1U;
-    s_clockFrequencies[CLOCK_SRC_BUS] = s_clockFrequencies[CLOCK_SRC_CORE] / divBus;
-}
-
-static uint32_t GetPccClockFreq(uint32_t pccIndex)
-{
-    uint32_t pccReg = ((volatile uint32_t *)PCC)[pccIndex];
-    uint32_t pcs;
-    
-    /* Check if clock is enabled */
-    if ((pccReg & PCC_CGC_MASK) == 0)
-    {
-        return 0;
-    }
-    
-    /* Get peripheral clock source */
-    pcs = (pccReg & PCC_PCS_MASK) >> PCC_PCS_SHIFT;
-    
-    switch (pcs)
-    {
-        case 1: return GetSoscFreq();
-        case 2: return GetSircFreq();
-        case 3: return GetFircFreq();
-        case 6: return GetSpllFreq();
-        default: return 0;
-    }
+    ClockManager_UpdateScgFrequencies();
+    ClockManager_UpdatePeripheralFrequencies();
+    s_clockCacheValid = true;
 }
 
 /*******************************************************************************
@@ -112,45 +74,33 @@ void ClockManager_Init(void)
 
 void ClockManager_Update(void)
 {
-    /* Update system clocks */
-    UpdateCoreClock();
-    UpdateBusClock();
-    
-    /* Update peripheral clocks - use PCC indices for S32K144 */
-    s_clockFrequencies[CLOCK_SRC_FLASH] = s_clockFrequencies[CLOCK_SRC_BUS];
-    s_clockFrequencies[CLOCK_SRC_FLEXCAN] = GetPccClockFreq(PCC_FlexCAN0_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPUART0] = GetPccClockFreq(PCC_LPUART0_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPUART1] = GetPccClockFreq(PCC_LPUART1_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPUART2] = GetPccClockFreq(PCC_LPUART2_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPSPI0] = GetPccClockFreq(PCC_LPSPI0_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPSPI1] = GetPccClockFreq(PCC_LPSPI1_INDEX);
-    s_clockFrequencies[CLOCK_SRC_LPI2C0] = GetPccClockFreq(PCC_LPI2C0_INDEX);
-    s_clockFrequencies[CLOCK_SRC_FTM0] = GetPccClockFreq(PCC_FTM0_INDEX);
-    s_clockFrequencies[CLOCK_SRC_FTM1] = GetPccClockFreq(PCC_FTM1_INDEX);
-    s_clockFrequencies[CLOCK_SRC_FTM2] = GetPccClockFreq(PCC_FTM2_INDEX);
-    s_clockFrequencies[CLOCK_SRC_FTM3] = GetPccClockFreq(PCC_FTM3_INDEX);
+    ClockManager_RefreshCache();
 }
 
-uint32_t ClockManager_GetFrequency(ClockSource_t source)
+uint32_t ClockManager_GetFrequency(clock_name_t clockName)
 {
-    if (source >= CLOCK_SRC_COUNT)
-    {
-        return 0;
+    if (clockName >= CLOCK_NAME_COUNT) {
+        return 0U;
     }
-    return s_clockFrequencies[source];
+
+    if (!s_clockCacheValid) {
+        ClockManager_RefreshCache();
+    }
+
+    return s_clockFrequencies[clockName];
 }
 
 uint32_t ClockManager_GetCoreFreq(void)
 {
-    return s_clockFrequencies[CLOCK_SRC_CORE];
+    return ClockManager_GetFrequency(CLOCK_NAME_CORE);
 }
 
 uint32_t ClockManager_GetBusFreq(void)
 {
-    return s_clockFrequencies[CLOCK_SRC_BUS];
+    return ClockManager_GetFrequency(CLOCK_NAME_BUS);
 }
 
-uint32_t ClockManager_CalcUartDivider(ClockSource_t clockSource,
+uint32_t ClockManager_CalcUartDivider(clock_name_t clockSource,
                                        uint32_t desiredBaudrate,
                                        uint8_t osr,
                                        uint16_t *sbr)
@@ -182,7 +132,7 @@ uint32_t ClockManager_CalcUartDivider(ClockSource_t clockSource,
     return actualBaudrate;
 }
 
-uint32_t ClockManager_CalcCanTiming(ClockSource_t clockSource,
+uint32_t ClockManager_CalcCanTiming(clock_name_t clockSource,
                                      uint32_t desiredBaudrate,
                                      uint8_t *presc,
                                      uint8_t *propseg,
@@ -223,7 +173,7 @@ uint32_t ClockManager_CalcCanTiming(ClockSource_t clockSource,
     return actualBaudrate;
 }
 
-uint32_t ClockManager_CalcSpiDivider(ClockSource_t clockSource,
+uint32_t ClockManager_CalcSpiDivider(clock_name_t clockSource,
                                       uint32_t desiredBaudrate,
                                       uint8_t *prescaler,
                                       uint8_t *scaler)

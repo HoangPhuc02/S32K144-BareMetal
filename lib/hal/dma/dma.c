@@ -27,27 +27,21 @@
  * Includes
  ******************************************************************************/
 #include "dma.h"
+#include "pcc.h"
 #include <stddef.h>
 
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 
-/** @brief PCC base address */
-#define PCC_BASE            (0x40065000UL)
-
-/** @brief PCC register offsets */
-#define PCC_DMA_OFFSET      (0x20U)
-#define PCC_DMAMUX_OFFSET   (0x21U)
-
-/** @brief PCC register structure */
-typedef struct {
-    __IO uint32_t CGC : 1;      /**< Bit 30: Clock Gate Control */
-    __IO uint32_t PR  : 1;      /**< Bit 31: Present */
-} PCC_CGC_Type;
-
-/** @brief Macro to enable clock for module */
-#define PCC_CGC_ENABLE(offset)  (*((volatile uint32_t *)(PCC_BASE + ((offset) << 2))) |= (1UL << 30))
+/** @brief SIM base address (for PLATCGC access) */
+#define SIM_BASE_ADDR           (0x40048000UL)
+/** @brief SIM->PLATCGC offset */
+#define SIM_PLATCGC_OFFSET      (0x40U)
+/** @brief SIM->PLATCGC address */
+#define SIM_PLATCGC_ADDR        (SIM_BASE_ADDR + SIM_PLATCGC_OFFSET)
+/** @brief SIM->PLATCGC DMA clock gate mask */
+#define SIM_PLATCGC_CGCDMA_MASK (0x4UL)
 
 /*******************************************************************************
  * Private Variables
@@ -73,6 +67,11 @@ static bool s_dmaInitialized = false;
 static status_t DMA_EnableClock(void);
 
 /**
+ * @brief Disable clocks for DMA/DMAMUX blocks
+ */
+static void DMA_DisableClock(void);
+
+/**
  * @brief Validate channel number
  * @param channel DMA channel number
  * @return true if channel is valid (0-15)
@@ -85,6 +84,11 @@ static inline bool DMA_IsValidChannel(uint8_t channel);
  */
 static void DMA_ResetTCD(uint8_t channel);
 
+/**
+ * @brief Convert transfer size enum to bytes
+ */
+static uint32_t DMA_GetTransferBytes(dma_transfer_size_t size);
+
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
@@ -94,13 +98,25 @@ static void DMA_ResetTCD(uint8_t channel);
  */
 static status_t DMA_EnableClock(void)
 {
-    /* Enable clock for DMA module */
-    PCC_CGC_ENABLE(PCC_DMA_OFFSET);
-    
-    /* Enable clock for DMAMUX module */
-    PCC_CGC_ENABLE(PCC_DMAMUX_OFFSET);
-    
+    /* Gate DMA core through SIM->PLATCGC */
+    REG_BIT_SET32(SIM_PLATCGC_ADDR, SIM_PLATCGC_CGCDMA_MASK);
+
+    /* Enable DMAMUX through PCC */
+    if (!PCC_EnablePeripheralClock(PCC_DMAMUX_INDEX)) {
+        REG_BIT_CLEAR32(SIM_PLATCGC_ADDR, SIM_PLATCGC_CGCDMA_MASK);
+        return STATUS_ERROR;
+    }
+
     return STATUS_SUCCESS;
+}
+
+/**
+ * @brief Disable clocks for DMA and DMAMUX
+ */
+static void DMA_DisableClock(void)
+{
+    (void)PCC_DisablePeripheralClock(PCC_DMAMUX_INDEX);
+    REG_BIT_CLEAR32(SIM_PLATCGC_ADDR, SIM_PLATCGC_CGCDMA_MASK);
 }
 
 /**
@@ -134,6 +150,24 @@ static void DMA_ResetTCD(uint8_t channel)
     DMA->TCD[channel].BITER_ELINKNO = 0U;
 }
 
+static uint32_t DMA_GetTransferBytes(dma_transfer_size_t size)
+{
+    switch (size) {
+        case DMA_TRANSFER_SIZE_1B:
+            return 1U;
+        case DMA_TRANSFER_SIZE_2B:
+            return 2U;
+        case DMA_TRANSFER_SIZE_4B:
+            return 4U;
+        case DMA_TRANSFER_SIZE_16B:
+            return 16U;
+        case DMA_TRANSFER_SIZE_32B:
+            return 32U;
+        default:
+            return 0U;
+    }
+}
+
 /*******************************************************************************
  * Public Functions
  ******************************************************************************/
@@ -146,7 +180,9 @@ status_t DMA_Init(void)
     uint8_t i;
     
     /* Enable clock for DMA and DMAMUX */
-    DMA_EnableClock();
+    if (DMA_EnableClock() != STATUS_SUCCESS) {
+        return STATUS_ERROR;
+    }
     
     /* Cancel all transfers in progress */
     REG_WRITE32(DMA_BASE + 0x0000, DMA_CR_CX_MASK);
@@ -174,14 +210,14 @@ status_t DMA_Init(void)
         /* Reset TCD */
         DMA_ResetTCD(i);
         
-        /* Disable channel trong DMAMUX */
+        /* Disable DMAMUX channel */
         DMAMUX->CHCFG[i] = 0U;
         
         /* Clear callback */
         s_dmaCallbacks[i] = NULL;
         s_dmaUserData[i] = NULL;
         
-        /* Disable DMA request cho kênh này */
+        /* Disable DMA request for this channel */
         REG_WRITE32(DMA_BASE + 0x001A, i); /* Clear Enable Request */
     }
     
@@ -212,6 +248,7 @@ status_t DMA_Deinit(void)
     }
     
     s_dmaInitialized = false;
+    DMA_DisableClock();
     
     return STATUS_SUCCESS;
 }
@@ -224,6 +261,7 @@ status_t DMA_ConfigChannel(const dma_channel_config_t *config)
     uint16_t attr;
     uint16_t csr;
     uint8_t channel;
+    uint32_t transferBytes;
     
     /* Validate parameters */
     if (config == NULL) {
@@ -237,6 +275,19 @@ status_t DMA_ConfigChannel(const dma_channel_config_t *config)
     }
     
     if (!s_dmaInitialized) {
+        return STATUS_ERROR;
+    }
+
+    transferBytes = DMA_GetTransferBytes(config->transferSize);
+    if ((transferBytes == 0U) ||
+        (config->minorLoopBytes == 0U) ||
+        ((config->minorLoopBytes % transferBytes) != 0U) ||
+        (config->majorLoopCount == 0U)) {
+        return STATUS_ERROR;
+    }
+
+    if (((config->sourceAddr % transferBytes) != 0U) ||
+        ((config->destAddr % transferBytes) != 0U)) {
         return STATUS_ERROR;
     }
     
@@ -341,6 +392,10 @@ status_t DMA_StartChannel(uint8_t channel)
 status_t DMA_StopChannel(uint8_t channel)
 {
     if (!DMA_IsValidChannel(channel)) {
+        return STATUS_ERROR;
+    }
+    
+    if (!s_dmaInitialized) {
         return STATUS_ERROR;
     }
     
@@ -505,6 +560,14 @@ status_t DMA_MemCopy(uint8_t channel, const void *src, void *dest, uint32_t size
     }
     
     if ((src == NULL) || (dest == NULL) || (size == 0U)) {
+        return STATUS_ERROR;
+    }
+
+    if ((size % 4U) != 0U) {
+        return STATUS_ERROR;
+    }
+    
+    if ((size / 4U) > 0xFFFFU) {
         return STATUS_ERROR;
     }
     

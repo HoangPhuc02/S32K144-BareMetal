@@ -13,7 +13,8 @@
  ******************************************************************************/
 #include "uart.h"
 #include "uart_reg.h"
-#include "pcc_reg.h"
+#include "pcc.h"
+#include "clock_manager.h"
 #if UART_DMA_ENABLE
 #include "dma.h"
 #endif
@@ -28,9 +29,86 @@
 /* Default oversampling ratio */
 #define UART_DEFAULT_OSR        (15U)
 
+/* Number of hardware UART instances available on S32K144 */
+#define UART_INSTANCE_COUNT     (3U)
+
+/* Default clock source used when enabling UART via PCC */
+#define UART_DEFAULT_CLK_SOURCE PCC_CLK_SRC_SOSC_DIV2
+
+/*******************************************************************************
+ * Private Data
+ ******************************************************************************/
+
+static const clock_name_t s_uartClockNameMap[UART_INSTANCE_COUNT] = {
+    CLOCK_NAME_LPUART0,
+    CLOCK_NAME_LPUART1,
+    CLOCK_NAME_LPUART2
+};
+
+static const uint8_t s_uartPccIndexMap[UART_INSTANCE_COUNT] = {
+    PCC_LPUART0_INDEX,
+    PCC_LPUART1_INDEX,
+    PCC_LPUART2_INDEX
+};
+
 /*******************************************************************************
  * Private Functions
  ******************************************************************************/
+
+static bool UART_GetInstanceFromBase(const LPUART_RegType *base, uint8_t *instance)
+{
+    if (base == NULL) {
+        return false;
+    }
+
+#if defined(LPUART0)
+    if (base == LPUART0) {
+        if (instance != NULL) {
+            *instance = 0U;
+        }
+        return true;
+    }
+#endif
+
+#if defined(LPUART1)
+    if (base == LPUART1) {
+        if (instance != NULL) {
+            *instance = 1U;
+        }
+        return true;
+    }
+#endif
+
+#if defined(LPUART2)
+    if (base == LPUART2) {
+        if (instance != NULL) {
+            *instance = 2U;
+        }
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+static uint32_t UART_GetInstanceClockFreqInternal(uint8_t instance)
+{
+    if (instance >= UART_INSTANCE_COUNT) {
+        return 0U;
+    }
+
+    return ClockManager_GetFrequency(s_uartClockNameMap[instance]);
+}
+
+static bool UART_GetPccIndex(uint8_t instance, uint8_t *pccIndex)
+{
+    if ((instance >= UART_INSTANCE_COUNT) || (pccIndex == NULL)) {
+        return false;
+    }
+
+    *pccIndex = s_uartPccIndexMap[instance];
+    return true;
+}
 
 /**
  * @brief Calculate baud rate register value
@@ -77,8 +155,22 @@ UART_Status_t UART_Init(LPUART_RegType *base, const UART_Config_t *config, uint3
     uint32_t sbr = 0U, osr = UART_DEFAULT_OSR;
     uint32_t baudReg = 0U;
     uint32_t ctrlReg = 0U;
+    uint32_t effectiveSrcClock = srcClock;
+    uint8_t instance = 0U;
 
     if ((base == NULL) || (config == NULL)) {
+        return UART_STATUS_ERROR;
+    }
+
+    if (effectiveSrcClock == 0U) {
+        if (!UART_GetInstanceFromBase(base, &instance)) {
+            return UART_STATUS_ERROR;
+        }
+
+        effectiveSrcClock = UART_GetInstanceClockFreqInternal(instance);
+    }
+
+    if (effectiveSrcClock == 0U) {
         return UART_STATUS_ERROR;
     }
 
@@ -91,7 +183,7 @@ UART_Status_t UART_Init(LPUART_RegType *base, const UART_Config_t *config, uint3
     base->GLOBAL &= ~LPUART_GLOBAL_RST_MASK;
 
     /* Calculate baud rate parameters */
-    UART_CalculateBaudRate(srcClock, config->baudRate, &sbr, &osr);
+    UART_CalculateBaudRate(effectiveSrcClock, config->baudRate, &sbr, &osr);
 
     /* Configure BAUD register */
     baudReg = LPUART_BAUD_SBR(sbr) | LPUART_BAUD_OSR(osr);
@@ -430,19 +522,25 @@ uint32_t UART_GetEnabledInterrupts(LPUART_RegType *base)
  */
 void UART_EnableClock(uint8_t instance)
 {
-    if (instance == 0U) {
-        /* Enable LPUART0 clock via PCC */
-        PCC->PCCn[PCC_LPUART0_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
-        						     |PCC_PCCn_CGC_MASK;
-    } else if (instance == 1U) {
-        /* Enable LPUART1 clock via PCC */
-        PCC->PCCn[PCC_LPUART1_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
-			     	 	 	 	 	 |PCC_PCCn_CGC_MASK;
-    } else if (instance == 2U) {
-        /* Enable LPUART2 clock via PCC */
-        PCC->PCCn[PCC_LPUART2_INDEX] |= 1 << PCC_PCCn_PCS_SHIFT
-			     	 	 	 	 	 |PCC_PCCn_CGC_MASK;
+    pcc_config_t config;
+    uint8_t pccIndex;
+
+    if (!UART_GetPccIndex(instance, &pccIndex)) {
+        return;
     }
+
+    /* Ensure clock gate is disabled before reconfiguring source */
+    (void)PCC_DisablePeripheralClock(pccIndex);
+
+    config.clockSource = UART_DEFAULT_CLK_SOURCE;
+    config.enableClock = true;
+    config.divider = 0U;
+    config.fractionalDivider = false;
+
+    (void)PCC_SetPeripheralClockConfig(pccIndex, &config);
+
+    /* Refresh clock cache so new frequency is visible via Clock Manager */
+    ClockManager_Update();
 }
 
 /**
@@ -450,16 +548,22 @@ void UART_EnableClock(uint8_t instance)
  */
 void UART_DisableClock(uint8_t instance)
 {
-    if (instance == 0U) {
-        /* Disable LPUART0 clock via PCC */
-        PCC->PCCn[PCC_LPUART0_INDEX] &= ~PCC_PCCn_CGC_MASK;
-    } else if (instance == 1U) {
-        /* Disable LPUART1 clock via PCC */
-        PCC->PCCn[PCC_LPUART1_INDEX] &= ~PCC_PCCn_CGC_MASK;
-    } else if (instance == 2U) {
-        /* Disable LPUART2 clock via PCC */
-        PCC->PCCn[PCC_LPUART2_INDEX] &= ~PCC_PCCn_CGC_MASK;
+    uint8_t pccIndex;
+
+    if (!UART_GetPccIndex(instance, &pccIndex)) {
+        return;
     }
+
+    (void)PCC_DisablePeripheralClock(pccIndex);
+    ClockManager_Update();
+}
+
+/**
+ * @brief Get current UART functional clock frequency for an instance
+ */
+uint32_t UART_GetClockFrequency(uint8_t instance)
+{
+    return UART_GetInstanceClockFreqInternal(instance);
 }
 
 /*******************************************************************************

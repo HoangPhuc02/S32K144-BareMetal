@@ -1,34 +1,20 @@
 /**
  * @file    dma.h
- * @brief   DMA (Direct Memory Access) Driver for S32K144
+ * @brief   DMA (Direct Memory Access) driver for S32K144
  * @details
- * DMA driver provides APIs to:
- * - Configure and control DMA channels
- * - Set up memory-to-memory, memory-to-peripheral, peripheral-to-memory transfers
- * - Manage interrupts and callbacks
- * - Support scatter-gather and channel linking
- * 
- * DMA helps reduce CPU load by automatically transferring data between:
- * - Memory to Memory (mem copy)
- * - Memory to Peripheral (UART, SPI, ADC, etc.)
- * - Peripheral to Peripheral
- * 
- * @author  PhucPH32
- * @date    27/11/2025
- * @version 1.0
- * 
- * @note    
- * - Must enable clock for DMA and DMAMUX before use
- * - Each DMA channel has its own Transfer Control Descriptor (TCD)
- * - Minor loop: one small transfer (e.g., 1 byte, 2 bytes, 4 bytes)
- * - Major loop: collection of multiple minor loops
- * 
- * @warning 
- * - Source and destination addresses must be aligned according to transfer size
- * - Cannot change configuration while DMA is active
- * 
- * @par Change Log:
- * - Version 1.0 (27/11/2025): Initialize DMA driver
+ * Provides a lightweight API to configure eDMA and DMAMUX so data can move between
+ * memory and peripherals without CPU intervention. The driver exposes helpers for:
+ * - Channel configuration (source/destination addresses, transfer sizes, loop counts)
+ * - Interrupt management and callback registration
+ * - Channel priority management
+ * - Blocking memory copy convenience transfers
+ *
+ * Using DMA offloads repetitive data movement from the CPU, reducing latency and
+ * allowing peripherals such as UART, SPI, CAN, ADC, etc. to operate autonomously.
+ *
+ * @note Enable both DMA and DMAMUX clocks before configuring channels.
+ * @warning Source and destination addresses must follow the alignment requirements
+ *          of the selected transfer size.
  */
 
 #ifndef DMA_H
@@ -51,7 +37,7 @@
  * @{
  */
 
-/** @brief Maximum DMA channels */
+/** @brief Number of DMA channels available on S32K144 */
 #define DMA_MAX_CHANNELS    (16U)
 
 /**
@@ -59,11 +45,11 @@
  * @details Data size for each transfer (minor loop)
  */
 typedef enum {
-    DMA_TRANSFER_SIZE_1B   = 0U,    /**< 1 byte (8-bit) */
-    DMA_TRANSFER_SIZE_2B   = 1U,    /**< 2 bytes (16-bit) */
-    DMA_TRANSFER_SIZE_4B   = 2U,    /**< 4 bytes (32-bit) */
-    DMA_TRANSFER_SIZE_16B  = 4U,    /**< 16 bytes (128-bit) - chá»‰ dÃ¹ng cho aligned transfers */
-    DMA_TRANSFER_SIZE_32B  = 5U     /**< 32 bytes (256-bit) - chá»‰ dÃ¹ng cho aligned transfers */
+    DMA_TRANSFER_SIZE_1B   = 0U,    /**< 1 byte (8-bit) transfer */
+    DMA_TRANSFER_SIZE_2B   = 1U,    /**< 2 byte (16-bit) transfer */
+    DMA_TRANSFER_SIZE_4B   = 2U,    /**< 4 byte (32-bit) transfer */
+    DMA_TRANSFER_SIZE_16B  = 4U,    /**< 16 byte (128-bit) transfer (aligned source/destination) */
+    DMA_TRANSFER_SIZE_32B  = 5U     /**< 32 byte (256-bit) transfer (aligned source/destination) */
 } dma_transfer_size_t;
 
 /**
@@ -144,246 +130,133 @@ typedef void (*dma_callback_t)(uint8_t channel, void *userData);
  */
 
 /**
- * @brief Khá»Ÿi táº¡o module DMA
- * @details
- * - Enable clock cho DMA vÃ  DMAMUX
- * - Reset táº¥t cáº£ cÃ¡c kÃªnh DMA vá»� tráº¡ng thÃ¡i máº·c Ä‘á»‹nh
- * - XÃ³a táº¥t cáº£ interrupt flags
- * 
- * @return STATUS_SUCCESS náº¿u thÃ nh cÃ´ng
- * 
- * @note Pháº£i gá»�i hÃ m nÃ y trÆ°á»›c khi sá»­ dá»¥ng báº¥t ká»³ chá»©c nÄƒng DMA nÃ o
- * 
- * @code
- * // Khá»Ÿi táº¡o DMA module
- * DMA_Init();
- * @endcode
+ * @brief Initialize the DMA module.
+ * @details Enables DMA/DMAMUX clocks, halts ongoing transfers, clears pending
+ *          flags, and resets every TCD so channels start from a known state.
+ * @retval STATUS_SUCCESS Module initialized successfully.
+ * @retval STATUS_ERROR   Clock configuration failed.
  */
 status_t DMA_Init(void);
 
 /**
- * @brief Deinitialize module DMA
- * @details
- * - Disable táº¥t cáº£ cÃ¡c kÃªnh DMA
- * - Disable clock cho DMA vÃ  DMAMUX
- * 
- * @return STATUS_SUCCESS náº¿u thÃ nh cÃ´ng
+ * @brief Deinitialize the DMA module.
+ * @details Stops all channels, disables their requests, clears DMAMUX sources,
+ *          and gates the DMA clock to save power.
+ * @retval STATUS_SUCCESS Module disabled successfully.
+ * @retval STATUS_ERROR   Module was not initialized beforehand.
  */
 status_t DMA_Deinit(void);
 
 /**
- * @brief Cáº¥u hÃ¬nh má»™t kÃªnh DMA
- * @details
- * Thiáº¿t láº­p Ä‘áº§y Ä‘á»§ cÃ¡c tham sá»‘ cho má»™t kÃªnh DMA:
- * - Source/Destination addresses
- * - Transfer size vÃ  count
- * - Interrupts vÃ  callbacks
- * 
- * @param[in] config Con trá»� tá»›i cáº¥u trÃºc cáº¥u hÃ¬nh DMA
- * 
- * @return STATUS_SUCCESS náº¿u cáº¥u hÃ¬nh thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u tham sá»‘ khÃ´ng há»£p lá»‡
- * 
- * @note
- * - Ä�á»‹a chá»‰ source/dest pháº£i aligned vá»›i transfer size
- * - KhÃ´ng Ä‘Æ°á»£c cáº¥u hÃ¬nh khi kÃªnh Ä‘ang active
- * 
- * @code
- * // Cáº¥u hÃ¬nh DMA channel 0 Ä‘á»ƒ copy memory
- * dma_channel_config_t config = {
- *     .channel = 0,
- *     .source = DMAMUX_SRC_ALWAYS_ON_60,
- *     .transferType = DMA_TRANSFER_MEM_TO_MEM,
- *     .transferSize = DMA_TRANSFER_SIZE_4B,
- *     .priority = DMA_PRIORITY_NORMAL,
- *     .sourceAddr = (uint32_t)srcBuffer,
- *     .sourceOffset = 4,
- *     .sourceLastAddrAdjust = 0,
- *     .destAddr = (uint32_t)destBuffer,
- *     .destOffset = 4,
- *     .destLastAddrAdjust = 0,
- *     .minorLoopBytes = 4,
- *     .majorLoopCount = 256,
- *     .enableInterrupt = true,
- *     .disableRequestAfterDone = true
- * };
- * DMA_ConfigChannel(&config);
- * @endcode
+ * @brief Configure a DMA channel.
+ * @param[in] config Pointer to the channel configuration structure.
+ * @retval STATUS_SUCCESS Channel configured successfully.
+ * @retval STATUS_ERROR   Invalid parameters or driver not initialized.
+ * @note Source and destination addresses must be aligned to the selected
+ *       transfer size and the channel must be idle while being reconfigured.
  */
 status_t DMA_ConfigChannel(const dma_channel_config_t *config);
 
 /**
- * @brief Báº¯t Ä‘áº§u transfer DMA cho má»™t kÃªnh
- * @details
- * KÃ­ch hoáº¡t DMA request cho kÃªnh Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh.
- * Ä�á»‘i vá»›i software-triggered DMA (ALWAYS_ON source), sáº½ start ngay láº­p tá»©c.
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return STATUS_SUCCESS náº¿u start thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh
- * 
- * @code
- * // Start DMA channel 0
- * DMA_StartChannel(0);
- * @endcode
+ * @brief Start a DMA transfer.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval STATUS_SUCCESS Transfer request accepted.
+ * @retval STATUS_ERROR   Channel is invalid or driver uninitialized.
  */
 status_t DMA_StartChannel(uint8_t channel);
 
 /**
- * @brief Dá»«ng transfer DMA cho má»™t kÃªnh
- * @details Disable DMA request cho kÃªnh Ä‘Æ°á»£c chá»‰ Ä‘á»‹nh
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return STATUS_SUCCESS náº¿u stop thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
+ * @brief Stop a DMA transfer.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval STATUS_SUCCESS Request disabled successfully.
+ * @retval STATUS_ERROR   Channel is invalid.
  */
 status_t DMA_StopChannel(uint8_t channel);
 
 /**
- * @brief Kiá»ƒm tra xem kÃªnh DMA cÃ³ Ä‘ang active khÃ´ng
- * @details Ä�á»�c bit ACTIVE trong TCD CSR register
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return true náº¿u kÃªnh Ä‘ang active
- * @return false náº¿u kÃªnh khÃ´ng active hoáº·c channel khÃ´ng há»£p lá»‡
+ * @brief Check whether a DMA channel is active.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval true  Channel is currently moving data.
+ * @retval false Channel is idle or invalid.
  */
 bool DMA_IsChannelActive(uint8_t channel);
 
 /**
- * @brief Kiá»ƒm tra xem kÃªnh DMA Ä‘Ã£ hoÃ n thÃ nh chÆ°a
- * @details Ä�á»�c bit DONE trong TCD CSR register
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return true náº¿u transfer Ä‘Ã£ hoÃ n thÃ nh
- * @return false náº¿u chÆ°a hoÃ n thÃ nh hoáº·c channel khÃ´ng há»£p lá»‡
+ * @brief Check whether a DMA channel completed its major loop.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval true  Transfer finished and DONE flag is set.
+ * @retval false Transfer not finished or channel invalid.
  */
 bool DMA_IsChannelDone(uint8_t channel);
 
 /**
- * @brief Clear cá»� DONE cá»§a kÃªnh DMA
- * @details XÃ³a bit DONE trong TCD CSR register
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return STATUS_SUCCESS náº¿u clear thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
+ * @brief Clear the DONE flag for a channel.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval STATUS_SUCCESS Flag cleared successfully.
+ * @retval STATUS_ERROR   Channel invalid.
  */
 status_t DMA_ClearDone(uint8_t channel);
 
 /**
- * @brief Ä�Äƒng kÃ½ callback function cho kÃªnh DMA
- * @details
- * Callback sáº½ Ä‘Æ°á»£c gá»�i khi:
- * - DMA transfer hoÃ n thÃ nh (major loop done)
- * - CÃ³ lá»—i xáº£y ra trong quÃ¡ trÃ¬nh transfer
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * @param[in] callback Function pointer cho callback
- * @param[in] userData Con trá»� tá»›i user data (cÃ³ thá»ƒ NULL)
- * 
- * @return STATUS_SUCCESS náº¿u Ä‘Äƒng kÃ½ thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c callback NULL
- * 
- * @code
- * void myDmaCallback(uint8_t channel, void *userData) {
- *     // Xá»­ lÃ½ khi DMA complete
- *     printf("DMA channel %d completed!\n", channel);
- * }
- * 
- * DMA_InstallCallback(0, myDmaCallback, NULL);
- * @endcode
+ * @brief Register a callback for a channel.
+ * @param[in] channel  DMA channel index (0-15).
+ * @param[in] callback Function invoked on major-loop complete or error.
+ * @param[in] userData Pointer passed back to the callback.
+ * @retval STATUS_SUCCESS Callback installed successfully.
+ * @retval STATUS_ERROR   Channel invalid or callback NULL.
  */
 status_t DMA_InstallCallback(uint8_t channel, dma_callback_t callback, void *userData);
 
 /**
- * @brief Thiáº¿t láº­p Æ°u tiÃªn cho kÃªnh DMA
- * @details
- * Khi nhiá»�u kÃªnh DMA request Ä‘á»“ng thá»�i, kÃªnh cÃ³ priority cao hÆ¡n sáº½ Ä‘Æ°á»£c phá»¥c vá»¥ trÆ°á»›c
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * @param[in] priority Má»©c Æ°u tiÃªn (0-15, vá»›i 15 lÃ  cao nháº¥t)
- * 
- * @return STATUS_SUCCESS náº¿u thiáº¿t láº­p thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
+ * @brief Set a DMA channel priority level.
+ * @param[in] channel  DMA channel index (0-15).
+ * @param[in] priority Priority level (0 lowest .. 15 highest).
+ * @retval STATUS_SUCCESS Priority updated successfully.
+ * @retval STATUS_ERROR   Channel invalid.
  */
 status_t DMA_SetChannelPriority(uint8_t channel, uint8_t priority);
 
 /**
- * @brief Láº¥y sá»‘ lÆ°á»£ng major loops cÃ²n láº¡i
- * @details Ä�á»�c giÃ¡ trá»‹ CITER (Current Iteration Count) tá»« TCD
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * @param[out] count Con trá»� Ä‘á»ƒ lÆ°u sá»‘ lÆ°á»£ng iterations cÃ²n láº¡i
- * 
- * @return STATUS_SUCCESS náº¿u Ä‘á»�c thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡ hoáº·c count NULL
+ * @brief Read the remaining major loop count.
+ * @param[in]  channel DMA channel index (0-15).
+ * @param[out] count   Pointer that receives the remaining iteration count.
+ * @retval STATUS_SUCCESS Value returned successfully.
+ * @retval STATUS_ERROR   Channel invalid or count is NULL.
  */
 status_t DMA_GetRemainingMajorLoops(uint8_t channel, uint16_t *count);
 
 /**
- * @brief Enable interrupt cho kÃªnh DMA
- * @details Enable interrupt khi major loop complete
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return STATUS_SUCCESS náº¿u enable thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
+ * @brief Enable the major-loop-complete interrupt for a channel.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval STATUS_SUCCESS Interrupt enabled.
+ * @retval STATUS_ERROR   Channel invalid.
  */
 status_t DMA_EnableChannelInterrupt(uint8_t channel);
 
 /**
- * @brief Disable interrupt cho kÃªnh DMA
- * @details Disable interrupt khi major loop complete
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @return STATUS_SUCCESS náº¿u disable thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u channel khÃ´ng há»£p lá»‡
+ * @brief Disable the major-loop-complete interrupt for a channel.
+ * @param[in] channel DMA channel index (0-15).
+ * @retval STATUS_SUCCESS Interrupt disabled.
+ * @retval STATUS_ERROR   Channel invalid.
  */
 status_t DMA_DisableChannelInterrupt(uint8_t channel);
 
 /**
- * @brief Xá»­ lÃ½ DMA interrupt (gá»�i tá»« ISR)
- * @details
- * HÃ m nÃ y xá»­ lÃ½ interrupt vÃ  gá»�i callback Ä‘Ã£ Ä‘Äƒng kÃ½.
- * Pháº£i Ä‘Æ°á»£c gá»�i trong DMA ISR.
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA (0-15)
- * 
- * @note HÃ m nÃ y sáº½ clear cÃ¡c interrupt flags tá»± Ä‘á»™ng
+ * @brief Common DMA ISR handler helper.
+ * @param[in] channel DMA channel index serviced by the ISR.
+ * @note Clears the interrupt/DONE flags before invoking the callback.
  */
 void DMA_IRQHandler(uint8_t channel);
 
 /**
- * @brief Copy dá»¯ liá»‡u tá»« source sang destination báº±ng DMA
- * @details
- * HÃ m tiá»‡n Ã­ch Ä‘á»ƒ thá»±c hiá»‡n memory-to-memory transfer.
- * HÃ m nÃ y sáº½:
- * - Tá»± Ä‘á»™ng cáº¥u hÃ¬nh kÃªnh DMA
- * - Start transfer
- * - Chá»� cho Ä‘áº¿n khi transfer hoÃ n thÃ nh (blocking)
- * 
- * @param[in] channel Sá»‘ kÃªnh DMA sá»­ dá»¥ng (0-15)
- * @param[in] src Ä�á»‹a chá»‰ nguá»“n
- * @param[out] dest Ä�á»‹a chá»‰ Ä‘Ã­ch
- * @param[in] size Sá»‘ bytes cáº§n copy
- * 
- * @return STATUS_SUCCESS náº¿u copy thÃ nh cÃ´ng
- * @return STATUS_ERROR náº¿u cÃ³ lá»—i xáº£y ra
- * 
- * @note
- * - HÃ m nÃ y lÃ  blocking (chá»� cho Ä‘áº¿n khi transfer xong)
- * - KhÃ´ng nÃªn dÃ¹ng trong interrupt context
- * 
- * @code
- * uint32_t src[256], dest[256];
- * // Copy 1024 bytes (256 x 4 bytes)
- * DMA_MemCopy(0, src, dest, 1024);
- * @endcode
+ * @brief Perform a blocking memory-to-memory copy using DMA.
+ * @param[in]  channel DMA channel index (0-15).
+ * @param[in]  src     Source buffer address.
+ * @param[out] dest    Destination buffer address.
+ * @param[in]  size    Number of bytes to copy (must be multiple of 4).
+ * @retval STATUS_SUCCESS Transfer completed.
+ * @retval STATUS_ERROR   Invalid parameters or timeout while waiting.
+ * @retval STATUS_TIMEOUT Transfer did not finish before timeout.
  */
 status_t DMA_MemCopy(uint8_t channel, const void *src, void *dest, uint32_t size);
 

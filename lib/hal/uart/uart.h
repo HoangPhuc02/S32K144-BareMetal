@@ -95,7 +95,7 @@ typedef enum {
  * 
  * @param[in] base      Pointer to UART peripheral base address
  * @param[in] config    Pointer to configuration structure
- * @param[in] srcClock  Source clock frequency in Hz
+ * @param[in] srcClock  Source clock frequency in Hz (set to 0 to auto-detect via Clock Manager)
  * 
  * @return UART_STATUS_SUCCESS if successful
  */
@@ -243,7 +243,7 @@ uint32_t UART_GetEnabledInterrupts(LPUART_RegType *base);
  ******************************************************************************/
 
 /**
- * @brief Enable UART clock
+ * @brief Enable UART clock using default PCC configuration (SOSC_DIV2, divide by 1)
  * 
  * @param[in] instance  UART instance number (0, 1, 2)
  */
@@ -255,6 +255,14 @@ void UART_EnableClock(uint8_t instance);
  * @param[in] instance  UART instance number (0, 1, 2)
  */
 void UART_DisableClock(uint8_t instance);
+
+/**
+ * @brief Get UART functional clock frequency from Clock Manager
+ * 
+ * @param[in] instance UART instance number (0, 1, 2)
+ * @return Frequency in Hz, or 0 if unavailable
+ */
+uint32_t UART_GetClockFrequency(uint8_t instance);
 
 /*******************************************************************************
  * Function Prototypes - DMA Transfer

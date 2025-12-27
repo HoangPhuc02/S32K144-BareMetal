@@ -104,15 +104,15 @@ typedef struct {
         __IO uint32_t NBYTES_MLOFFNO; /**< Minor Byte Count (with offset, no link) */
         __IO uint32_t NBYTES_MLOFFYES; /**< Minor Byte Count (with offset and link) */
     };
-    __IO uint32_t SLAST;            /**< Last Source Address Adjustment - Điều chỉnh địa chỉ sau major loop */
-    __IO uint32_t DADDR;            /**< Destination Address - Địa chỉ đích */
-    __IO uint16_t DOFF;             /**< Destination Offset - Bước nhảy đích sau mỗi minor loop */
+    __IO uint32_t SLAST;            /**< Last Source Address Adjustment - Applied after each major loop */
+    __IO uint32_t DADDR;            /**< Destination Address */
+    __IO uint16_t DOFF;             /**< Destination Offset - Address increment per minor loop */
     union {
         __IO uint16_t CITER_ELINKNO;  /**< Current Major Loop Count (no link) */
         __IO uint16_t CITER_ELINKYES; /**< Current Major Loop Count (with link) */
     };
-    __IO uint32_t DLAST_SGA;        /**< Last Destination Address Adjustment / Scatter Gather Address */
-    __IO uint16_t CSR;              /**< Control and Status - Các cờ điều khiển và trạng thái */
+    __IO uint32_t DLAST_SGA;        /**< Last Destination Adjustment or Scatter/Gather Address */
+    __IO uint16_t CSR;              /**< Control and Status flags */
     union {
         __IO uint16_t BITER_ELINKNO;  /**< Beginning Major Loop Count (no link) */
         __IO uint16_t BITER_ELINKYES; /**< Beginning Major Loop Count (with link) */
@@ -121,7 +121,7 @@ typedef struct {
 
 /**
  * @brief DMA Module Structure
- * @details Cấu trúc đầy đủ của DMA module bao gồm các thanh ghi điều khiển và 16 TCD
+ * @details Complete DMA register map including control registers and 16 TCD entries.
  */
 typedef struct {
     __IO uint32_t CR;               /**< 0x0000: Control Register */
@@ -158,11 +158,8 @@ typedef struct {
 
 /**
  * @brief DMAMUX Channel Configuration Register
- * @details
- * Mỗi kênh DMA có một thanh ghi CHCFG trong DMAMUX để:
- * - Enable/disable kênh
- * - Chọn nguồn request (peripheral hoặc always-on)
- * - Enable periodic trigger
+ * @details Each DMA channel owns a CHCFG register to select its request source,
+ *          enable/disable triggering, and configure hardware triggers.
  */
 typedef struct {
     __IO uint8_t SOURCE      : 6;   /**< Bits 0-5: DMA Channel Source (Slot) */
@@ -172,7 +169,7 @@ typedef struct {
 
 /**
  * @brief DMAMUX Module Structure
- * @details 16 thanh ghi CHCFG, mỗi thanh ghi cho một kênh DMA
+ * @details Array of 16 channel configuration registers.
  */
 typedef struct {
     __IO uint8_t CHCFG[16];         /**< Channel Configuration Registers (0-15) */
@@ -192,27 +189,27 @@ typedef struct {
  * DMA Control Register (CR) Bit Definitions
  ******************************************************************************/
 
-/** @brief Enable Debug - DMA hoạt động khi CPU ở chế độ debug */
+/** @brief Enable Debug - DMA keeps running in debug mode */
 #define DMA_CR_EDBG_MASK    (0x00000001UL)
 #define DMA_CR_EDBG_SHIFT   (0U)
 
-/** @brief Enable Round Robin Channel Arbitration - Ưu tiên các kênh theo vòng tròn */
+/** @brief Enable Round Robin Channel Arbitration */
 #define DMA_CR_ERCA_MASK    (0x00000002UL)
 #define DMA_CR_ERCA_SHIFT   (1U)
 
-/** @brief Halt On Error - Dừng DMA khi có lỗi */
+/** @brief Halt On Error */
 #define DMA_CR_HOE_MASK     (0x00000010UL)
 #define DMA_CR_HOE_SHIFT    (4U)
 
-/** @brief Halt DMA Operations - Dừng tất cả hoạt động DMA */
+/** @brief Halt DMA Operations */
 #define DMA_CR_HALT_MASK    (0x00000020UL)
 #define DMA_CR_HALT_SHIFT   (5U)
 
-/** @brief Continuous Link Mode - Chế độ liên kết liên tục */
+/** @brief Continuous Link Mode */
 #define DMA_CR_CLM_MASK     (0x00000040UL)
 #define DMA_CR_CLM_SHIFT    (6U)
 
-/** @brief Enable Minor Loop Mapping - Cho phép offset trong minor loop */
+/** @brief Enable Minor Loop Mapping */
 #define DMA_CR_EMLM_MASK    (0x00000080UL)
 #define DMA_CR_EMLM_SHIFT   (7U)
 
@@ -260,7 +257,7 @@ typedef struct {
  * DMAMUX Source Definitions (S32K144)
  ******************************************************************************/
 
-/** @brief DMAMUX Sources - Các nguồn request cho DMA */
+/** @brief DMAMUX request sources */
 typedef enum {
     DMAMUX_SRC_DISABLED         = 0U,   /**< DMA channel disabled */
     DMAMUX_SRC_LPUART0_RX       = 2U,   /**< LPUART0 Receive */

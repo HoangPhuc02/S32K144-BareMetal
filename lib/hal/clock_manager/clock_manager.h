@@ -2,43 +2,62 @@
 #define CLOCK_MANAGER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /*******************************************************************************
  * Clock Source Types
  ******************************************************************************/
+/**
+ * @brief Logical clock tree names used by Clock Manager
+ * @details Enumerates both SCG system clocks and PCC peripheral functional clocks.
+ *          Use these values with ClockManager_GetFrequency() to retrieve the
+ *          current frequency in Hz without dealing with low-level registers.
+ */
 typedef enum {
-    CLOCK_SRC_CORE,         /* Core/CPU clock */
-    CLOCK_SRC_BUS,          /* Bus clock (peripheral clock) */
-    CLOCK_SRC_FLASH,        /* Flash clock */
-    CLOCK_SRC_FLEXCAN,      /* FlexCAN clock */
-    CLOCK_SRC_LPUART0,      /* LPUART0 clock */
-    CLOCK_SRC_LPUART1,      /* LPUART1 clock */
-    CLOCK_SRC_LPUART2,      /* LPUART2 clock */
-    CLOCK_SRC_LPSPI0,       /* LPSPI0 clock */
-    CLOCK_SRC_LPSPI1,       /* LPSPI1 clock */
-    CLOCK_SRC_LPI2C0,       /* LPI2C0 clock */
-    CLOCK_SRC_FTM0,         /* FTM0 clock */
-    CLOCK_SRC_FTM1,         /* FTM1 clock */
-    CLOCK_SRC_FTM2,         /* FTM2 clock */
-    CLOCK_SRC_FTM3,         /* FTM3 clock */
-    CLOCK_SRC_COUNT
-} ClockSource_t;
+    CLOCK_NAME_CORE = 0,        /* Core/CPU clock */
+    CLOCK_NAME_BUS,             /* Bus/Peripheral clock */
+    CLOCK_NAME_SLOW,            /* Slow clock */
+    CLOCK_NAME_SOSC,            /* System Oscillator clock */
+    CLOCK_NAME_SIRC,            /* Slow IRC clock */
+    CLOCK_NAME_FIRC,            /* Fast IRC clock */
+    CLOCK_NAME_SPLL,            /* System PLL clock */
+    CLOCK_NAME_FLASH,           /* Flash clock */
+    CLOCK_NAME_FLEXCAN0,        /* FlexCAN0 functional clock */
+    CLOCK_NAME_FLEXCAN1,        /* FlexCAN1 functional clock */
+    CLOCK_NAME_FLEXCAN2,        /* FlexCAN2 functional clock */
+    CLOCK_NAME_LPUART0,         /* LPUART0 functional clock */
+    CLOCK_NAME_LPUART1,         /* LPUART1 functional clock */
+    CLOCK_NAME_LPUART2,         /* LPUART2 functional clock */
+    CLOCK_NAME_LPSPI0,          /* LPSPI0 functional clock */
+    CLOCK_NAME_LPSPI1,          /* LPSPI1 functional clock */
+    CLOCK_NAME_LPSPI2,          /* LPSPI2 functional clock */
+    CLOCK_NAME_LPI2C0,          /* LPI2C0 functional clock */
+    CLOCK_NAME_FTM0,            /* FTM0 functional clock */
+    CLOCK_NAME_FTM1,            /* FTM1 functional clock */
+    CLOCK_NAME_FTM2,            /* FTM2 functional clock */
+    CLOCK_NAME_FTM3,            /* FTM3 functional clock */
+    CLOCK_NAME_ADC0,            /* ADC0 functional clock */
+    CLOCK_NAME_ADC1,            /* ADC1 functional clock */
+    CLOCK_NAME_COUNT
+} clock_name_t;
 
 /*******************************************************************************
  * API Functions
  ******************************************************************************/
 
 /**
- * @brief Initialize clock manager with current system configuration
+ * @brief Initialize clock manager cache using current SCG/PCC configuration
  */
 void ClockManager_Init(void);
 
 /**
- * @brief Get frequency of a specific clock source
- * @param source Clock source to query
- * @return Frequency in Hz, 0 if invalid source
+ * @brief Get frequency of a specific clock name
+ * @param clockName Logical clock to query (see clock_name_t)
+ * @return Frequency in Hz, 0 if invalid or disabled
+ * @note Cache is refreshed automatically on the first call after reset or
+ *       whenever ClockManager_Update() is invoked explicitly.
  */
-uint32_t ClockManager_GetFrequency(ClockSource_t source);
+uint32_t ClockManager_GetFrequency(clock_name_t clockName);
 
 /**
  * @brief Get core clock frequency
@@ -53,8 +72,7 @@ uint32_t ClockManager_GetCoreFreq(void);
 uint32_t ClockManager_GetBusFreq(void);
 
 /**
- * @brief Update clock frequencies after clock configuration change
- * @note Call this after modifying PCC or SCG registers
+ * @brief Update cached clock frequencies after SCG/PCC configuration changes
  */
 void ClockManager_Update(void);
 
@@ -70,7 +88,7 @@ void ClockManager_Update(void);
  * @param[out] sbr Calculated SBR value
  * @return Actual baudrate achieved
  */
-uint32_t ClockManager_CalcUartDivider(ClockSource_t clockSource,
+uint32_t ClockManager_CalcUartDivider(clock_name_t clockSource,
                                        uint32_t desiredBaudrate,
                                        uint8_t osr,
                                        uint16_t *sbr);
@@ -85,7 +103,7 @@ uint32_t ClockManager_CalcUartDivider(ClockSource_t clockSource,
  * @param[out] pseg2 Phase segment 2
  * @return Actual baudrate achieved
  */
-uint32_t ClockManager_CalcCanTiming(ClockSource_t clockSource,
+uint32_t ClockManager_CalcCanTiming(clock_name_t clockSource,
                                      uint32_t desiredBaudrate,
                                      uint8_t *presc,
                                      uint8_t *propseg,
@@ -100,7 +118,7 @@ uint32_t ClockManager_CalcCanTiming(ClockSource_t clockSource,
  * @param[out] scaler Scaler value
  * @return Actual baudrate achieved
  */
-uint32_t ClockManager_CalcSpiDivider(ClockSource_t clockSource,
+uint32_t ClockManager_CalcSpiDivider(clock_name_t clockSource,
                                       uint32_t desiredBaudrate,
                                       uint8_t *prescaler,
                                       uint8_t *scaler);
